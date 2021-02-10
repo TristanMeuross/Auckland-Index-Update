@@ -306,7 +306,6 @@ auckland_df['COVID-19 Income Relief Payment']  = auckland_df[['COVID-19 Income R
 #Upload to Google Sheets
 workbook_name = '2. Auckland-index-covid-dashboard-unemployment-benefits-and-payments'
 
-
 upload_gsheets(client_secret, 
                workbook_name, 
                [auckland_df])
@@ -322,13 +321,13 @@ format_gsheets(client_secret,
 #%% CONSUMER SPENDING
 URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
 options = Options()
-options.headless = False #This setting stops a browser window from opening
+options.headless = True #This setting stops a browser window from opening
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 driver.get(URL)
 
 # Accept caveats pop up
-element = WebDriverWait(driver, 90).until(
+element = WebDriverWait(driver, 120).until(
     EC.presence_of_element_located((By.XPATH, '//*[@id="shiny-modal"]/div/div/div[3]/button'))
     )
 element.click()
@@ -397,6 +396,7 @@ driver.quit() #quit driver
 
 # Upload to Google Sheets
 workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
+
 upload_gsheets(client_secret, 
                workbook_name, 
                [card_df])
@@ -534,33 +534,21 @@ at_df = pd.concat((pd.read_excel(at_download.content,
                   ignore_index=True)
 
 at_df = at_df.iloc[::-1] #Reverse date order from oldest to newest
+at_df['Rolling'] = at_df['Total'].rolling(7).mean().round(0)
 
 #Create daily public transport patronage dataframe - NOTE that at_df file starts at July 2019
-pt_df_20 = (at_df.loc[(at_df['Business Date']>='2020-07-01') &
-                  (at_df['Business Date']<='2020-12-31'),
+pt_df_21 = (at_df.loc[(at_df['Business Date']>='2021-01-01') &
+                  (at_df['Business Date']<='2021-12-31'),
                   ['Business Date',
-                   'Total']]).reset_index(drop=True)
+                   'Rolling']]).reset_index(drop=True)
+pt_df_21.rename(columns={'Rolling':'2021'},
+                         inplace=True)
 
-pt_df_19 = (at_df.loc[(at_df['Business Date']>='2019-07-03') &
-                  (at_df['Business Date']<='2019-12-31'),
-                  ['Business Date',
-                   'Total']]).reset_index(drop=True)
+nan_df = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
+                      index=[0,1,2],
+                      columns=pt_df_21.columns)
 
-#Create moving averages
-pt_df_20['2020'] = pt_df_20['Total'].rolling(7).mean().round(0)
-pt_df_19['2019'] = pt_df_19['Total'].rolling(7).mean().round(0)
-
-pt_df_20 = pt_df_20.dropna()
-pt_df_20['2020'] = pt_df_20['2020'].astype(np.float32)
-pt_df_19 = pt_df_19.dropna()
-pt_df_19['2019'] = pt_df_19['2019'].astype(np.float32)
-
-
-# Join 2020 and 2019 into one dataframe
-pt_new_df = pt_df_20[['Business Date', '2020']].join(pt_df_19['2019']).dropna()
-
-# Rename columns
-pt_new_df.rename(columns={'Business Date':'Date'}, inplace = True)
+pt_df_21 = nan_df.append(pt_df_21, ignore_index=True)
 
 # Download data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -584,15 +572,18 @@ pygsheets.DataRange(
 # download google sheet into dataframe
 download_df = wks.get_as_df()
 download_df['Date'] = pd.to_datetime(download_df['Date'], format='%Y-%m-%d')
-download_df.columns = download_df.columns.astype(str)
+download_df.columns = download_df.columns.astype(str) # Convert column headers to string
+download_df.drop(columns=['2021'], inplace=True)
 download_df['2020'] = download_df['2020'].str.replace(',','').astype(np.float32)
 download_df['2019'] = download_df['2019'].str.replace(',','').astype(np.float32)
-download_df = download_df.iloc[:182,:]
+download_df = download_df.iloc[:,:3]
 
-# Merge dataframes, which will add only new data cells
-pt_df = pd.merge(download_df, pt_new_df, on=['Date', '2020', '2019'], how='outer')
+# Join dataframes, adds the 2021 column to 
+pt_df = download_df.join(pt_df_21['2021'])
 
+print(pt_df)
 
+#%%
 # Create light and heavy traffic dataframes
 light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
                             (stats_df['parameter']>='2020-01-01'),
@@ -633,6 +624,8 @@ light_df = light_df_20[['Date','2020']].join(light_df_19['2019'])
 heavy_df = heavy_df_20[['Date','2020']].join(heavy_df_19['2019'])
 
 #Upload to Google Sheets
+workbook_name = 'Auckland Index Data Upload Test'
+
 transport_dataframes = [light_df, heavy_df, pt_df]
 
 upload_gsheets(client_secret,
