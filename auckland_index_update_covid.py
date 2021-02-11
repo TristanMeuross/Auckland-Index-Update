@@ -544,11 +544,11 @@ pt_df_21 = (at_df.loc[(at_df['Business Date']>='2021-01-01') &
 pt_df_21.rename(columns={'Rolling':'2021'},
                          inplace=True)
 
-nan_df = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
+nan_df_21 = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
                       index=[0,1,2],
                       columns=pt_df_21.columns)
 
-pt_df_21 = nan_df.append(pt_df_21, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
+pt_df_21 = nan_df_21.append(pt_df_21, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
 
 # Download data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -581,9 +581,6 @@ download_df = download_df.iloc[:,:3]
 # Join dataframes, adds the 2021 column to 
 pt_df = download_df.join(pt_df_21['2021'])
 
-print(pt_df)
-
-#%%
 # Create light and heavy traffic dataframes
 light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') & 
                             (stats_df['parameter']>='2019-01-01') &
@@ -598,8 +595,8 @@ light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles
                              'value']]).reset_index(drop=True)
 
 light_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
-                            (stats_df['parameter']>='2020-01-01') &
-                            (stats_df['parameter']<='2020-12-28'),
+                            (stats_df['parameter']>='2021-01-01') &
+                            (stats_df['parameter']<='2021-12-28'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
@@ -616,11 +613,12 @@ heavy_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles
                              'value']]).reset_index(drop=True)
 
 heavy_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
-                            (stats_df['parameter']>='2020-01-01') &
-                            (stats_df['parameter']<='2020-12-28'),
+                            (stats_df['parameter']>='2021-01-01') &
+                            (stats_df['parameter']<='2021-12-28'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
+# Rename columns
 light_df_19.columns = ['Date',
                         '2019']
 
@@ -639,21 +637,26 @@ heavy_df_20.columns = ['Date',
 heavy_df_21.columns = ['Date',
                         '2021']
 
-nan_df = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
+# Add empty cells to line up weekdays across 2019-21
+nan_df_20 = pd.DataFrame([[np.nan] * len(light_df_20.columns)],
+                      index=[0],
+                      columns=light_df_20.columns)
+
+nan_df_21 = pd.DataFrame([[np.nan] * len(light_df_21.columns)],
                       index=[0,1,2],
-                      columns=pt_df_21.columns)
+                      columns=light_df_21.columns)
 
-pt_df_21 = nan_df.append(pt_df_21, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
-
+light_df_20 = nan_df_20.append(light_df_20, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
+light_df_21 = nan_df_21.append(light_df_21, ignore_index=True)
+heavy_df_20 = nan_df_20.append(heavy_df_20, ignore_index=True)
+heavy_df_21 = nan_df_21.append(heavy_df_21, ignore_index=True)
 
 #Join 2020 and 2019 into one dataframe
-light_df = light_df_20[['Date','2020']].join(light_df_19['2019'])
-heavy_df = heavy_df_20[['Date','2020']].join(heavy_df_19['2019'])
-
-#%%
+light_df = light_df_19.join([light_df_20['2020'], light_df_21['2021']])
+heavy_df = heavy_df_19.join([heavy_df_20['2020'], heavy_df_21['2021']])
 
 #Upload to Google Sheets
-workbook_name = 'Auckland Index Data Upload Test'
+workbook_name = '6. Auckland-index-covid-dashboard-transport'
 
 transport_dataframes = [light_df, heavy_df, pt_df]
 
@@ -734,30 +737,45 @@ format_gsheets(client_secret,
 #Create arrivals dataframe
 arrivals_df_19 = (stats_df.loc[(stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31') &
+                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
                             (stats_df['series_name']=='Total'),
                             ['parameter',
                               'value']]).reset_index(drop=True)
 
 
 arrivals_df_20 = (stats_df.loc[(stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-31') &
+                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
                             (stats_df['series_name']=='Total'),
                             ['parameter',
                               'value']]).reset_index(drop=True)
 
-#Add blank data line for 'missing' 29th Feb value in 2019
-line = pd.DataFrame({'parameter': '2020-03-01', 'value': ''}, index=[3])
-arrivals_df_19 = pd.concat([arrivals_df_19.iloc[:59], line, arrivals_df_19.iloc[59:]]).reset_index(drop=True)
+arrivals_df_21 = (stats_df.loc[(stats_df['parameter']>='2021-01-01') &
+                            (stats_df['parameter']<='2021-12-31') &
+                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
+                            (stats_df['series_name']=='Total'),
+                            ['parameter',
+                              'value']]).reset_index(drop=True)
 
 #Rename columns
-arrivals_df_20.columns = ['Date',
-                          '2020']
 arrivals_df_19.columns = ['Date',
                           '2019']
+arrivals_df_20.columns = ['Date',
+                          '2020']
+arrivals_df_21.columns = ['Date',
+                          '2021']
 
-arrivals_df = arrivals_df_20[['Date','2020']].join(arrivals_df_19['2019'])
+# Drop 29th Feb line from 2020 dataframe
+i = arrivals_df_20[(arrivals_df_20['Date']=='2020-02-29')].index
+arrivals_df_20.drop(i, inplace=True)
 
 
+# Join three dataframes together
+arrivals_df = arrivals_df_19.join([arrivals_df_20['2020'], arrivals_df_21['2021']])
+
+# Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
+
 upload_gsheets(client_secret,
                workbook_name,
                [arrivals_df])
