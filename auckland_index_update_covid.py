@@ -538,7 +538,7 @@ at_df['Rolling'] = at_df['Total'].rolling(7).mean().round(0)
 
 #Create daily public transport patronage dataframe - NOTE that at_df file starts at July 2019
 pt_df_21 = (at_df.loc[(at_df['Business Date']>='2021-01-01') &
-                  (at_df['Business Date']<='2021-12-31'),
+                  (at_df['Business Date']<='2021-12-28'), # Ends 28th to line up with 2019-20 year's weekdays
                   ['Business Date',
                    'Rolling']]).reset_index(drop=True)
 pt_df_21.rename(columns={'Rolling':'2021'},
@@ -548,7 +548,7 @@ nan_df = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
                       index=[0,1,2],
                       columns=pt_df_21.columns)
 
-pt_df_21 = nan_df.append(pt_df_21, ignore_index=True)
+pt_df_21 = nan_df.append(pt_df_21, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
 
 # Download data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -585,43 +585,72 @@ print(pt_df)
 
 #%%
 # Create light and heavy traffic dataframes
-light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
-                            (stats_df['parameter']>='2020-01-01'),
+light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') & 
+                            (stats_df['parameter']>='2019-01-01') &
+                            (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') & 
-                            (stats_df['parameter']>='2019-01-02') &
+light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
+                            (stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-30'),
+                            ['parameter',
+                             'value']]).reset_index(drop=True)
+
+light_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
+                            (stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-28'),
+                            ['parameter',
+                             'value']]).reset_index(drop=True)
+
+heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+                            (stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
 heavy_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
-                            (stats_df['parameter']>='2020-01-01'),
+                            (stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-30'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
-                            (stats_df['parameter']>='2019-01-02') &
-                            (stats_df['parameter']<='2019-12-31'),
+heavy_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+                            (stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-28'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
+
+light_df_19.columns = ['Date',
+                        '2019']
 
 light_df_20.columns = ['Date',
                         '2020']
 
-light_df_19.columns = ['Date',
+light_df_21.columns = ['Date',
+                        '2021']
+
+heavy_df_19.columns = ['Date',
                         '2019']
 
 heavy_df_20.columns = ['Date',
                         '2020']
 
-heavy_df_19.columns = ['Date',
-                        '2019']
+heavy_df_21.columns = ['Date',
+                        '2021']
+
+nan_df = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
+                      index=[0,1,2],
+                      columns=pt_df_21.columns)
+
+pt_df_21 = nan_df.append(pt_df_21, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
+
 
 #Join 2020 and 2019 into one dataframe
 light_df = light_df_20[['Date','2020']].join(light_df_19['2019'])
 heavy_df = heavy_df_20[['Date','2020']].join(heavy_df_19['2019'])
+
+#%%
 
 #Upload to Google Sheets
 workbook_name = 'Auckland Index Data Upload Test'
