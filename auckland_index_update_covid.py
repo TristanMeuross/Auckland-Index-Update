@@ -152,7 +152,7 @@ stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 
 # Create cases dataframe from ESR nz covid dashboard
 # csv_file is downloaded from 'csv download' link in the 'source' section of dashboard
-csv_file = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\Data Files\source_case_curve.csv'
+csv_file = r'C:\Users\meurost\Auckland-Index-Update\data_files\source_case_curve'
 cases_df = (pd.read_csv(csv_file,
                        skiprows=3)).dropna(how='any')
 cases_df['Imported or import-related'] = (cases_df['Daily imported cases']
