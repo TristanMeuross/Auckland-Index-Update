@@ -318,102 +318,6 @@ format_gsheets(client_secret,
                'DATE', 
                'dd-mmm-yy')
 
-#%% CONSUMER SPENDING
-URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
-options = Options()
-options.headless = True #This setting stops a browser window from opening
-driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
-                          options=options)
-driver.get(URL)
-
-# Accept caveats pop up
-element = WebDriverWait(driver, 120).until(
-    EC.presence_of_element_located((By.XPATH, '//*[@id="shiny-modal"]/div/div/div[3]/button'))
-    )
-element.click()
-
-# Copy data from national - xpath seems to change, program will iterate through xpaths
-try: 
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/button[1]'))
-        )
-except:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/a[1]'))
-        )    
-
-time.sleep(10)
-element.click()
-time.sleep(1)
-
-national_df = pd.read_clipboard(skiprows=2).transpose()
-national_df.reset_index(inplace=True)
-national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
-national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
-national_df.drop(['Domestic', 
-                  'International', 
-                  'index', 
-                  'year', 
-                  'Date', 
-                  'Weekly'], 
-                  axis=1, inplace=True)
-national_df['Total'] = (national_df['Total'].astype(float))/100 # convert to percentages
-national_df.rename(columns={'Total':'New Zealand'},
-                        inplace=True)
-
-
-# Navigate to regional section
-element = WebDriverWait(driver, 30).until(
-    EC.presence_of_element_located((By.XPATH, '//*[@id="sidebarItemExpanded"]/ul/li[2]/a'))
-    )
-element.click()
-
-# Copy data from regional - xpath seems to change, program will iterate through xpaths
-try:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[1]'))
-        )
-except:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/a[1]'))
-        )
-time.sleep(10)
-element.click()
-time.sleep(1)
-
-regional_df = pd.read_clipboard(skiprows=2, sep='\t').set_index('Unnamed: 0').transpose() #create dataframe from copied data
-regional_df.reset_index(inplace=True)
-regional_df.dropna(thresh=3, inplace=True)
-regional_df.dropna(axis=1, how='all', inplace=True)
-regional_df['year'] = '2020' #Create year column to convert date column (date column has no year)
-regional_df['Date'] = pd.to_datetime(regional_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
-regional_df = regional_df[['Date', 'Auckland', 'Wellington']]
-regional_df[['Auckland','Wellington']] = regional_df[['Auckland','Wellington']]/100 # convert to percentages
-
-card_df = regional_df.reset_index(drop=True).join(national_df) #create combined dataframe
-
-driver.quit() #quit driver
-
-# Upload to Google Sheets
-workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
-
-upload_gsheets(client_secret, 
-               workbook_name, 
-               [card_df])
-
-format_gsheets(client_secret, 
-               workbook_name, 
-               'B', 
-               'D', 
-               'PERCENT', 
-               '0.0%')
-
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
-               'dd-mmm-yy')
 
 #%% GOOGLE MOBILITY DATA
 
@@ -864,4 +768,100 @@ format_gsheets(client_secret,
                 'PERCENT',
                 '0.0%')
 
+# %% CONSUMER SPENDING
+URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
+options = Options()
+options.headless = False #This setting stops a browser window from opening
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+driver.get(URL)
+
+# Accept caveats pop up
+element = WebDriverWait(driver, 120).until(
+    EC.presence_of_element_located((By.XPATH, '//*[@id="shiny-modal"]/div/div/div[3]/button'))
+    )
+element.click()
+
+# Copy data from national - xpath seems to change, program will iterate through xpaths
+try: 
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/button[1]'))
+        )
+except:
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/a[1]'))
+        )    
+
+time.sleep(10)
+element.click()
+time.sleep(1)
+
+national_df = pd.read_clipboard(skiprows=2).transpose()
+national_df.reset_index(inplace=True)
+national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
+national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
+national_df.drop(['Domestic', 
+                  'International', 
+                  'index', 
+                  'year', 
+                  'Date', 
+                  'Weekly'], 
+                  axis=1, inplace=True)
+national_df['Total'] = (national_df['Total'].astype(float))/100 # convert to percentages
+national_df.rename(columns={'Total':'New Zealand'},
+                        inplace=True)
+
+
+# Navigate to regional section
+element = WebDriverWait(driver, 30).until(
+    EC.presence_of_element_located((By.XPATH, '//*[@id="sidebarItemExpanded"]/ul/li[2]/a'))
+    )
+element.click()
+
+# Copy data from regional - xpath seems to change, program will iterate through xpaths
+try:
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[1]'))
+        )
+except:
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/a[1]'))
+        )
+time.sleep(10)
+element.click()
+time.sleep(1)
+
+regional_df = pd.read_clipboard(skiprows=2, sep='\t').set_index('Unnamed: 0').transpose() #create dataframe from copied data
+regional_df.reset_index(inplace=True)
+regional_df.dropna(thresh=3, inplace=True)
+regional_df.dropna(axis=1, how='all', inplace=True)
+regional_df['year'] = '2020' #Create year column to convert date column (date column has no year)
+regional_df['Date'] = pd.to_datetime(regional_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
+regional_df = regional_df[['Date', 'Auckland', 'Wellington']]
+regional_df[['Auckland','Wellington']] = regional_df[['Auckland','Wellington']]/100 # convert to percentages
+
+card_df = regional_df.reset_index(drop=True).join(national_df) #create combined dataframe
+
+driver.quit() #quit driver
+
+# Upload to Google Sheets
+workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
+
+upload_gsheets(client_secret, 
+               workbook_name, 
+               [card_df])
+
+format_gsheets(client_secret, 
+               workbook_name, 
+               'B', 
+               'D', 
+               'PERCENT', 
+               '0.0%')
+
+format_gsheets(client_secret, 
+               workbook_name, 
+               'A', 
+               'A', 
+               'DATE', 
+               'dd-mmm-yy')
 
