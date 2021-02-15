@@ -805,48 +805,47 @@ link = stats_soup.find('a', href=re.compile(
 
 csv_download = ('https://www.stats.govt.nz' + link)
 
-#Create dataframe
+# Create dataframe
 df = pd.read_csv(csv_download)
 df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
-df['Current_Match'] = pd.to_datetime(df['Current_Match'], format='%d/%m/%Y')
 
-#Create 2020 and 2019 dataframes
-df_2020 = df.loc[(df['Direction']=='Exports') & 
-              (df['Year']==2020) & 
+# Filter to relevant data and pivot so that categories are in columns
+filtered_df = df.loc[(df['Direction']=='Exports') & 
               (df['Country']=='All') &
               (df['Transport_Mode']=='All') &
               (df['Measure']=='$')].reset_index(drop=True)
 
-df_2019 = df.loc[(df['Direction']=='Exports') & 
-              (df['Year']==2019) & 
-              (df['Country']=='All') &
-              (df['Transport_Mode']=='All') &
-              (df['Measure']=='$')].reset_index(drop=True)
-
-#Create moving average
-df_2020['moving_average'] = df_2020['Value'].rolling(28).mean()
-df_2019['moving_average'] = df_2019['Value'].rolling(28).mean()
-
-
-#Create pivots
-df_2020 = pd.pivot_table(df_2020, 
-                          index='Current_Match', 
-                          values='moving_average',
+pivot_df = pd.pivot_table(filtered_df, 
+                          index='Date', 
+                          values='Value',
                           columns='Commodity').dropna()
 
-df_2019 = pd.pivot_table(df_2019, 
-                          index='Current_Match', 
-                          values='moving_average',
-                          columns='Commodity').dropna()
+# Update values to rolling 28 day average
+pivot_df = pivot_df.rolling(28).mean()
 
-#Create dataframe of year on year percentage change
-trade_df = (df_2020.div(df_2019)).sub(1).reset_index()
-trade_df.rename(columns={'All':'Total',
-                          'Current_Match':'Date'}, 
-                inplace = True)
+# Create df's of relevant date ranges
+df_2019 = pivot_df.loc['2019-01-01':'2019-12-31']
+df_2020 = pivot_df.loc['2020-01-01':'2020-12-31']
+df_2021 = pivot_df.loc['2021-01-01':'2021-12-31']
+df_2019_ly = (df_2019.append(df_2019.iloc[-1:])) # Create 366 line 2019 dataframe (last day repeated) to compare with 2020 leap year
+
+# Calculate 2020 percentage change
+pct_df = df_2019_ly.append(df_2020)
+trade_df_20 = (pct_df.pct_change(periods=366)).dropna()
+
+# Calculate 2021 percentage change
+pct_df = df_2019.append(df_2021)
+trade_df_21 = (pct_df.pct_change(periods=365)).dropna()
+
+# Combine df's
+trade_df = trade_df_20.append(trade_df_21)
+trade_df.reset_index(inplace=True)
+trade_df.rename({'All':'Total'},
+                inplace=True)
 
 #Upload to Google Sheets
 workbook_name = '9. Auckland-index-covid-dashboard-trade'
+
 upload_gsheets(client_secret,
                 workbook_name,
                 [trade_df])
@@ -856,7 +855,7 @@ format_gsheets(client_secret,
                 'A',
                 'A',
                 'DATE',
-                'dd-mmm')
+                'dd-mmm-yy')
 
 format_gsheets(client_secret,
                 workbook_name,
