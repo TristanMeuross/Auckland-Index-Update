@@ -20,6 +20,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 import numpy as np
 from functools import reduce
+import os
 
 # Authorizes uploads to Google Sheets
 client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
@@ -103,6 +104,25 @@ def format_gsheets(credentials, workbook_name, range_start, range_end,
         pygsheets.DataRange(
             start=range_start, end=range_end, worksheet = sh[i]
           ).apply_format(mc)
+
+def delete_file(folder_path, filename):
+    """    
+    Parameters
+    ----------
+    folder_path : TYPE
+        The folder path where the file to be deleted is located.
+    filename : TYPE
+        The name of the file, including the extension.
+
+    Returns
+    -------
+    None.
+
+    """
+    filepath = os.path.join(folder_path, filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
 
 # %% Create stats portal data object
 
@@ -340,7 +360,6 @@ df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date',
                'workplaces_percent_change_from_baseline':'float', 
                'residential_percent_change_from_baseline':'float'})
 
-#%%
 #Rename columns
 df.rename(columns={'retail_and_recreation_percent_change_from_baseline':'retail_rec_raw', 
                'grocery_and_pharmacy_percent_change_from_baseline':'grocery_raw', 
@@ -350,9 +369,6 @@ df.rename(columns={'retail_and_recreation_percent_change_from_baseline':'retail_
                'residential_percent_change_from_baseline':'residential_raw'},
           inplace=True)
 
-print(df)
-
-# %%
 #Slice dataframe by Auckland
 auckland_df = df.loc[df['sub_region_1'] == 'Auckland',
             ['retail_rec_raw', 
@@ -375,11 +391,11 @@ ma = ['Retail & Recreation',
       'Transit Stations', 
       'Workplaces', 
       'Residential']
-#%%
+
 #Create moving averages
 for i, x in zip(raw, ma):
     auckland_df[x] = (auckland_df[i].rolling(7).mean())/100
-#%%
+
 #Reset index for Google Sheets so date is a column and in correct format
 auckland_df = auckland_df.reset_index()
 auckland_df['date'] = auckland_df['date'].dt.strftime('%m/%d/%Y')
@@ -675,6 +691,7 @@ arrivals_df_20.drop(i, inplace=True)
 # Join three dataframes together
 arrivals_df = arrivals_df_19.join([arrivals_df_20['2020'], arrivals_df_21['2021']])
 
+
 # Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
 
@@ -769,7 +786,12 @@ format_gsheets(client_secret,
 # %% CONSUMER SPENDING
 URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
 options = Options()
-options.headless = True #This setting stops a browser window from opening
+# options.headless = False 
+data_folder = os.path.join(os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files') # Create's path for operating user
+prefs = {'download.default_directory' : data_folder} # Download's to project folder path as above
+options.add_experimental_option('prefs', prefs)
+options.add_argument("--headless") #This setting stops a browser window from opening
+
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 driver.get(URL)
@@ -780,21 +802,21 @@ element = WebDriverWait(driver, 120).until(
     )
 element.click()
 
-# Copy data from national - xpath seems to change, program will iterate through xpaths
-try: 
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/button[1]'))
-        )
-except:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/a[1]'))
-        )    
+# Remove previously downloaded MBIE data files
+delete_file(data_folder, 'MBIE - COVID19 Response.csv') # National data file
 
-time.sleep(10)
-element.click()
-time.sleep(1)
+# Download national data file
+element = WebDriverWait(driver, 30).until(
+    EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/button[2]'))
+    )
 
-national_df = pd.read_clipboard(skiprows=2).transpose()
+time.sleep(10) # Wait extra time for data to load
+element.click() # Download CSV
+time.sleep(15) # Wait for file to download
+
+national_df = pd.read_csv('data_files/MBIE - COVID19 Response.csv', index_col=(0)).transpose()
+national_df.drop(national_df.index[0],
+                 inplace=True)
 national_df.reset_index(inplace=True)
 national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
 national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
@@ -802,13 +824,11 @@ national_df.drop(['Domestic',
                   'International', 
                   'index', 
                   'year', 
-                  'Date', 
-                  'Weekly'], 
+                  'Date'], 
                   axis=1, inplace=True)
-national_df['Total'] = (national_df['Total'].astype(float))/100 # convert to percentages
 national_df.rename(columns={'Total':'New Zealand'},
                         inplace=True)
-
+national_df = national_df/100 # Convert to percentage
 
 # Navigate to regional section
 element = WebDriverWait(driver, 30).until(
@@ -819,26 +839,26 @@ element.click()
 # Copy data from regional - xpath seems to change, program will iterate through xpaths
 try:
     element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[1]'))
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[2]'))
         )
 except:
     element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/a[1]'))
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[2]'))
         )
-time.sleep(10)
-element.click()
-time.sleep(1)
+time.sleep(10) # Wait extra time for data to load
+element.click() # Download CSV (note previous file overwritten)
+time.sleep(15) # Wait for file to download
 
-regional_df = pd.read_clipboard(skiprows=2, sep='\t').set_index('Unnamed: 0').transpose() #create dataframe from copied data
+regional_df = pd.read_csv('data_files/MBIE - COVID19 Response.csv', index_col=(0)).transpose() #
+regional_df.drop(regional_df.index[0],
+                 inplace=True)
 regional_df.reset_index(inplace=True)
-regional_df.dropna(thresh=3, inplace=True)
-regional_df.dropna(axis=1, how='all', inplace=True)
 regional_df['year'] = '2020' #Create year column to convert date column (date column has no year)
 regional_df['Date'] = pd.to_datetime(regional_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
 regional_df = regional_df[['Date', 'Auckland', 'Wellington']]
 regional_df[['Auckland','Wellington']] = regional_df[['Auckland','Wellington']]/100 # convert to percentages
 
-card_df = regional_df.reset_index(drop=True).join(national_df) #create combined dataframe
+card_df = regional_df.reset_index(drop=True).join(national_df)
 
 driver.quit() #quit driver
 
