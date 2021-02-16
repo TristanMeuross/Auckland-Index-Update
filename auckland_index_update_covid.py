@@ -20,6 +20,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 import numpy as np
 from functools import reduce
+import os
 
 # Authorizes uploads to Google Sheets
 client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
@@ -104,6 +105,25 @@ def format_gsheets(credentials, workbook_name, range_start, range_end,
             start=range_start, end=range_end, worksheet = sh[i]
           ).apply_format(mc)
 
+def delete_file(folder_path, filename):
+    """    
+    Parameters
+    ----------
+    folder_path : TYPE
+        The folder path where the file to be deleted is located.
+    filename : TYPE
+        The name of the file, including the extension.
+
+    Returns
+    -------
+    None.
+
+    """
+    filepath = os.path.join(folder_path, filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
+
 # %% Create stats portal data object
 
 URL = 'https://statisticsnz.shinyapps.io/covid_19_dashboard/'
@@ -152,7 +172,7 @@ stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 
 # Create cases dataframe from ESR nz covid dashboard
 # csv_file is downloaded from 'csv download' link in the 'source' section of dashboard
-csv_file = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\Data Files\source_case_curve.csv'
+csv_file = 'data_files/source_case_curve.csv'
 cases_df = (pd.read_csv(csv_file,
                        skiprows=3)).dropna(how='any')
 cases_df['Imported or import-related'] = (cases_df['Daily imported cases']
@@ -306,7 +326,6 @@ auckland_df['COVID-19 Income Relief Payment']  = auckland_df[['COVID-19 Income R
 #Upload to Google Sheets
 workbook_name = '2. Auckland-index-covid-dashboard-unemployment-benefits-and-payments'
 
-
 upload_gsheets(client_secret, 
                workbook_name, 
                [auckland_df])
@@ -319,101 +338,6 @@ format_gsheets(client_secret,
                'DATE', 
                'dd-mmm-yy')
 
-#%% CONSUMER SPENDING
-URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
-options = Options()
-options.headless = False #This setting stops a browser window from opening
-driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
-                          options=options)
-driver.get(URL)
-
-# Accept caveats pop up
-element = WebDriverWait(driver, 90).until(
-    EC.presence_of_element_located((By.XPATH, '//*[@id="shiny-modal"]/div/div/div[3]/button'))
-    )
-element.click()
-
-# Copy data from national - xpath seems to change, program will iterate through xpaths
-try: 
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/button[1]'))
-        )
-except:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/a[1]'))
-        )    
-
-time.sleep(10)
-element.click()
-time.sleep(1)
-
-national_df = pd.read_clipboard(skiprows=2).transpose()
-national_df.reset_index(inplace=True)
-national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
-national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
-national_df.drop(['Domestic', 
-                  'International', 
-                  'index', 
-                  'year', 
-                  'Date', 
-                  'Weekly'], 
-                  axis=1, inplace=True)
-national_df['Total'] = (national_df['Total'].astype(float))/100 # convert to percentages
-national_df.rename(columns={'Total':'New Zealand'},
-                        inplace=True)
-
-
-# Navigate to regional section
-element = WebDriverWait(driver, 30).until(
-    EC.presence_of_element_located((By.XPATH, '//*[@id="sidebarItemExpanded"]/ul/li[2]/a'))
-    )
-element.click()
-
-# Copy data from regional - xpath seems to change, program will iterate through xpaths
-try:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[1]'))
-        )
-except:
-    element = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/a[1]'))
-        )
-time.sleep(10)
-element.click()
-time.sleep(1)
-
-regional_df = pd.read_clipboard(skiprows=2, sep='\t').set_index('Unnamed: 0').transpose() #create dataframe from copied data
-regional_df.reset_index(inplace=True)
-regional_df.dropna(thresh=3, inplace=True)
-regional_df.dropna(axis=1, how='all', inplace=True)
-regional_df['year'] = '2020' #Create year column to convert date column (date column has no year)
-regional_df['Date'] = pd.to_datetime(regional_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
-regional_df = regional_df[['Date', 'Auckland', 'Wellington']]
-regional_df[['Auckland','Wellington']] = regional_df[['Auckland','Wellington']]/100 # convert to percentages
-
-card_df = regional_df.reset_index(drop=True).join(national_df) #create combined dataframe
-
-driver.quit() #quit driver
-
-# Upload to Google Sheets
-workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
-upload_gsheets(client_secret, 
-               workbook_name, 
-               [card_df])
-
-format_gsheets(client_secret, 
-               workbook_name, 
-               'B', 
-               'D', 
-               'PERCENT', 
-               '0.0%')
-
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
-               'dd-mmm-yy')
 
 #%% GOOGLE MOBILITY DATA
 
@@ -430,26 +354,20 @@ df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date',
                'iso_3166_2_code':'string', 
                'census_fips_code':'float',  
                'retail_and_recreation_percent_change_from_baseline':'float', 
-               'grocery_raw_and_pharmacy_percent_change_from_baseline':'float', 
-               'parks_raw_percent_change_from_baseline':'float', 
-               'transit_stations_raw_percent_change_from_baseline':'float', 
-               'workplaces_raw_percent_change_from_baseline':'float', 
-               'residential_raw_percent_change_from_baseline':'float'})
+               'grocery_and_pharmacy_percent_change_from_baseline':'float', 
+               'parks_percent_change_from_baseline':'float', 
+               'transit_stations_percent_change_from_baseline':'float', 
+               'workplaces_percent_change_from_baseline':'float', 
+               'residential_percent_change_from_baseline':'float'})
 
 #Rename columns
-df.columns = ['country_region_code', 
-                'country_region', 
-                'sub_region_1', 
-                'sub_region_2', 
-                'metro_area', 
-                'iso_3166_2_code', 
-                'census_fips_code', 
-                'retail_rec_raw', 
-                'grocery_raw', 
-                'parks_raw', 
-                'transit_stations_raw', 
-                'workplaces_raw', 
-                'residential_raw']
+df.rename(columns={'retail_and_recreation_percent_change_from_baseline':'retail_rec_raw', 
+               'grocery_and_pharmacy_percent_change_from_baseline':'grocery_raw', 
+               'parks_percent_change_from_baseline':'parks_raw', 
+               'transit_stations_percent_change_from_baseline':'transit_stations_raw', 
+               'workplaces_percent_change_from_baseline':'workplaces_raw', 
+               'residential_percent_change_from_baseline':'residential_raw'},
+          inplace=True)
 
 #Slice dataframe by Auckland
 auckland_df = df.loc[df['sub_region_1'] == 'Auckland',
@@ -534,33 +452,21 @@ at_df = pd.concat((pd.read_excel(at_download.content,
                   ignore_index=True)
 
 at_df = at_df.iloc[::-1] #Reverse date order from oldest to newest
+at_df['Rolling'] = at_df['Total'].rolling(7).mean().round(0)
 
 #Create daily public transport patronage dataframe - NOTE that at_df file starts at July 2019
-pt_df_20 = (at_df.loc[(at_df['Business Date']>='2020-07-01') &
-                  (at_df['Business Date']<='2020-12-31'),
+pt_df_21 = (at_df.loc[(at_df['Business Date']>='2021-01-01') &
+                  (at_df['Business Date']<='2021-12-28'), # Ends 28th to line up with 2019-20 year's weekdays
                   ['Business Date',
-                   'Total']]).reset_index(drop=True)
+                   'Rolling']]).reset_index(drop=True)
+pt_df_21.rename(columns={'Rolling':'2021'},
+                         inplace=True)
 
-pt_df_19 = (at_df.loc[(at_df['Business Date']>='2019-07-03') &
-                  (at_df['Business Date']<='2019-12-31'),
-                  ['Business Date',
-                   'Total']]).reset_index(drop=True)
+nan_df_21 = pd.DataFrame([[np.nan] * len(pt_df_21.columns)],
+                      index=[0,1,2],
+                      columns=pt_df_21.columns)
 
-#Create moving averages
-pt_df_20['2020'] = pt_df_20['Total'].rolling(7).mean().round(0)
-pt_df_19['2019'] = pt_df_19['Total'].rolling(7).mean().round(0)
-
-pt_df_20 = pt_df_20.dropna()
-pt_df_20['2020'] = pt_df_20['2020'].astype(np.float32)
-pt_df_19 = pt_df_19.dropna()
-pt_df_19['2019'] = pt_df_19['2019'].astype(np.float32)
-
-
-# Join 2020 and 2019 into one dataframe
-pt_new_df = pt_df_20[['Business Date', '2020']].join(pt_df_19['2019']).dropna()
-
-# Rename columns
-pt_new_df.rename(columns={'Business Date':'Date'}, inplace = True)
+pt_df_21 = nan_df_21.append(pt_df_21, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
 
 # Download data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -584,55 +490,92 @@ pygsheets.DataRange(
 # download google sheet into dataframe
 download_df = wks.get_as_df()
 download_df['Date'] = pd.to_datetime(download_df['Date'], format='%Y-%m-%d')
-download_df.columns = download_df.columns.astype(str)
+download_df.columns = download_df.columns.astype(str) # Convert column headers to string
+download_df.drop(columns=['2021'], inplace=True)
 download_df['2020'] = download_df['2020'].str.replace(',','').astype(np.float32)
 download_df['2019'] = download_df['2019'].str.replace(',','').astype(np.float32)
-download_df = download_df.iloc[:182,:]
+download_df = download_df.iloc[:,:3]
 
-# Merge dataframes, which will add only new data cells
-pt_df = pd.merge(download_df, pt_new_df, on=['Date', '2020', '2019'], how='outer')
-
+# Join dataframes, adds the 2021 column to 
+pt_df = download_df.join(pt_df_21['2021'])
 
 # Create light and heavy traffic dataframes
-light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
-                            (stats_df['parameter']>='2020-01-01'),
+light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') & 
+                            (stats_df['parameter']>='2019-01-01') &
+                            (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') & 
-                            (stats_df['parameter']>='2019-01-02') &
+light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
+                            (stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-30'),
+                            ['parameter',
+                             'value']]).reset_index(drop=True)
+
+light_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
+                            (stats_df['parameter']>='2021-01-01') &
+                            (stats_df['parameter']<='2021-12-28'),
+                            ['parameter',
+                             'value']]).reset_index(drop=True)
+
+heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+                            (stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
 heavy_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
-                            (stats_df['parameter']>='2020-01-01'),
+                            (stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-30'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
-                            (stats_df['parameter']>='2019-01-02') &
-                            (stats_df['parameter']<='2019-12-31'),
+heavy_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+                            (stats_df['parameter']>='2021-01-01') &
+                            (stats_df['parameter']<='2021-12-28'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
+
+# Rename columns
+light_df_19.columns = ['Date',
+                        '2019']
 
 light_df_20.columns = ['Date',
                         '2020']
 
-light_df_19.columns = ['Date',
+light_df_21.columns = ['Date',
+                        '2021']
+
+heavy_df_19.columns = ['Date',
                         '2019']
 
 heavy_df_20.columns = ['Date',
                         '2020']
 
-heavy_df_19.columns = ['Date',
-                        '2019']
+heavy_df_21.columns = ['Date',
+                        '2021']
+
+# Add empty cells to line up weekdays across 2019-21
+nan_df_20 = pd.DataFrame([[np.nan] * len(light_df_20.columns)],
+                      index=[0],
+                      columns=light_df_20.columns)
+
+nan_df_21 = pd.DataFrame([[np.nan] * len(light_df_21.columns)],
+                      index=[0,1,2],
+                      columns=light_df_21.columns)
+
+light_df_20 = nan_df_20.append(light_df_20, ignore_index=True) # Adds empty rows to line weekdays up for 2019-20 year's with 2021
+light_df_21 = nan_df_21.append(light_df_21, ignore_index=True)
+heavy_df_20 = nan_df_20.append(heavy_df_20, ignore_index=True)
+heavy_df_21 = nan_df_21.append(heavy_df_21, ignore_index=True)
 
 #Join 2020 and 2019 into one dataframe
-light_df = light_df_20[['Date','2020']].join(light_df_19['2019'])
-heavy_df = heavy_df_20[['Date','2020']].join(heavy_df_19['2019'])
+light_df = light_df_19.join([light_df_20['2020'], light_df_21['2021']])
+heavy_df = heavy_df_19.join([heavy_df_20['2020'], heavy_df_21['2021']])
 
 #Upload to Google Sheets
+workbook_name = '6. Auckland-index-covid-dashboard-transport'
+
 transport_dataframes = [light_df, heavy_df, pt_df]
 
 upload_gsheets(client_secret,
@@ -712,30 +655,46 @@ format_gsheets(client_secret,
 #Create arrivals dataframe
 arrivals_df_19 = (stats_df.loc[(stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31') &
+                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
                             (stats_df['series_name']=='Total'),
                             ['parameter',
                               'value']]).reset_index(drop=True)
 
 
 arrivals_df_20 = (stats_df.loc[(stats_df['parameter']>='2020-01-01') &
+                            (stats_df['parameter']<='2020-12-31') &
+                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
                             (stats_df['series_name']=='Total'),
                             ['parameter',
                               'value']]).reset_index(drop=True)
 
-#Add blank data line for 'missing' 29th Feb value in 2019
-line = pd.DataFrame({'parameter': '2020-03-01', 'value': ''}, index=[3])
-arrivals_df_19 = pd.concat([arrivals_df_19.iloc[:59], line, arrivals_df_19.iloc[59:]]).reset_index(drop=True)
+arrivals_df_21 = (stats_df.loc[(stats_df['parameter']>='2021-01-01') &
+                            (stats_df['parameter']<='2021-12-31') &
+                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
+                            (stats_df['series_name']=='Total'),
+                            ['parameter',
+                              'value']]).reset_index(drop=True)
 
 #Rename columns
-arrivals_df_20.columns = ['Date',
-                          '2020']
 arrivals_df_19.columns = ['Date',
                           '2019']
+arrivals_df_20.columns = ['Date',
+                          '2020']
+arrivals_df_21.columns = ['Date',
+                          '2021']
 
-arrivals_df = arrivals_df_20[['Date','2020']].join(arrivals_df_19['2019'])
+# Drop 29th Feb line from 2020 dataframe
+i = arrivals_df_20[(arrivals_df_20['Date']=='2020-02-29')].index
+arrivals_df_20.drop(i, inplace=True)
 
 
+# Join three dataframes together
+arrivals_df = arrivals_df_19.join([arrivals_df_20['2020'], arrivals_df_21['2021']])
+
+
+# Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
+
 upload_gsheets(client_secret,
                workbook_name,
                [arrivals_df])
@@ -765,48 +724,47 @@ link = stats_soup.find('a', href=re.compile(
 
 csv_download = ('https://www.stats.govt.nz' + link)
 
-#Create dataframe
+# Create dataframe
 df = pd.read_csv(csv_download)
 df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
-df['Current_Match'] = pd.to_datetime(df['Current_Match'], format='%d/%m/%Y')
 
-#Create 2020 and 2019 dataframes
-df_2020 = df.loc[(df['Direction']=='Exports') & 
-              (df['Year']==2020) & 
+# Filter to relevant data and pivot so that categories are in columns
+filtered_df = df.loc[(df['Direction']=='Exports') & 
               (df['Country']=='All') &
               (df['Transport_Mode']=='All') &
               (df['Measure']=='$')].reset_index(drop=True)
 
-df_2019 = df.loc[(df['Direction']=='Exports') & 
-              (df['Year']==2019) & 
-              (df['Country']=='All') &
-              (df['Transport_Mode']=='All') &
-              (df['Measure']=='$')].reset_index(drop=True)
-
-#Create moving average
-df_2020['moving_average'] = df_2020['Value'].rolling(28).mean()
-df_2019['moving_average'] = df_2019['Value'].rolling(28).mean()
-
-
-#Create pivots
-df_2020 = pd.pivot_table(df_2020, 
-                          index='Current_Match', 
-                          values='moving_average',
+pivot_df = pd.pivot_table(filtered_df, 
+                          index='Date', 
+                          values='Value',
                           columns='Commodity').dropna()
 
-df_2019 = pd.pivot_table(df_2019, 
-                          index='Current_Match', 
-                          values='moving_average',
-                          columns='Commodity').dropna()
+# Update values to rolling 28 day average
+pivot_df = pivot_df.rolling(28).mean()
 
-#Create dataframe of year on year percentage change
-trade_df = (df_2020.div(df_2019)).sub(1).reset_index()
-trade_df.rename(columns={'All':'Total',
-                          'Current_Match':'Date'}, 
-                inplace = True)
+# Create df's of relevant date ranges
+df_2019 = pivot_df.loc['2019-01-01':'2019-12-31']
+df_2020 = pivot_df.loc['2020-01-01':'2020-12-31']
+df_2021 = pivot_df.loc['2021-01-01':'2021-12-31']
+df_2019_ly = (df_2019.append(df_2019.iloc[-1:])) # Create 366 line 2019 dataframe (last day repeated) to compare with 2020 leap year
+
+# Calculate 2020 percentage change
+pct_df = df_2019_ly.append(df_2020)
+trade_df_20 = (pct_df.pct_change(periods=366)).dropna()
+
+# Calculate 2021 percentage change
+pct_df = df_2019.append(df_2021)
+trade_df_21 = (pct_df.pct_change(periods=365)).dropna()
+
+# Combine df's
+trade_df = trade_df_20.append(trade_df_21)
+trade_df.reset_index(inplace=True)
+trade_df.rename({'All':'Total'},
+                inplace=True)
 
 #Upload to Google Sheets
 workbook_name = '9. Auckland-index-covid-dashboard-trade'
+
 upload_gsheets(client_secret,
                 workbook_name,
                 [trade_df])
@@ -816,7 +774,7 @@ format_gsheets(client_secret,
                 'A',
                 'A',
                 'DATE',
-                'dd-mmm')
+                'dd-mmm-yy')
 
 format_gsheets(client_secret,
                 workbook_name,
@@ -825,4 +783,103 @@ format_gsheets(client_secret,
                 'PERCENT',
                 '0.0%')
 
+# %% CONSUMER SPENDING
+URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
+options = Options()
+# options.headless = False 
+data_folder = os.path.join(os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files') # Create's path for operating user
+prefs = {'download.default_directory' : data_folder} # Download's to project folder path as above
+options.add_experimental_option('prefs', prefs)
+options.add_argument("--headless") #This setting stops a browser window from opening
+
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+driver.get(URL)
+
+# Accept caveats pop up
+element = WebDriverWait(driver, 120).until(
+    EC.presence_of_element_located((By.XPATH, '//*[@id="shiny-modal"]/div/div/div[3]/button'))
+    )
+element.click()
+
+# Remove previously downloaded MBIE data files
+delete_file(data_folder, 'MBIE - COVID19 Response.csv') # National data file
+
+# Download national data file
+element = WebDriverWait(driver, 30).until(
+    EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_0_wrapper"]/div[2]/button[2]'))
+    )
+
+time.sleep(10) # Wait extra time for data to load
+element.click() # Download CSV
+time.sleep(15) # Wait for file to download
+
+national_df = pd.read_csv('data_files/MBIE - COVID19 Response.csv', index_col=(0)).transpose()
+national_df.drop(national_df.index[0],
+                 inplace=True)
+national_df.reset_index(inplace=True)
+national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
+national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
+national_df.drop(['Domestic', 
+                  'International', 
+                  'index', 
+                  'year', 
+                  'Date'], 
+                  axis=1, inplace=True)
+national_df.rename(columns={'Total':'New Zealand'},
+                        inplace=True)
+national_df = national_df/100 # Convert to percentage
+
+# Navigate to regional section
+element = WebDriverWait(driver, 30).until(
+    EC.presence_of_element_located((By.XPATH, '//*[@id="sidebarItemExpanded"]/ul/li[2]/a'))
+    )
+element.click()
+
+# Copy data from regional - xpath seems to change, program will iterate through xpaths
+try:
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[2]'))
+        )
+except:
+    element = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="DataTables_Table_1_wrapper"]/div[2]/button[2]'))
+        )
+time.sleep(10) # Wait extra time for data to load
+element.click() # Download CSV (note previous file overwritten)
+time.sleep(15) # Wait for file to download
+
+regional_df = pd.read_csv('data_files/MBIE - COVID19 Response.csv', index_col=(0)).transpose() #
+regional_df.drop(regional_df.index[0],
+                 inplace=True)
+regional_df.reset_index(inplace=True)
+regional_df['year'] = '2020' #Create year column to convert date column (date column has no year)
+regional_df['Date'] = pd.to_datetime(regional_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
+regional_df = regional_df[['Date', 'Auckland', 'Wellington']]
+regional_df[['Auckland','Wellington']] = regional_df[['Auckland','Wellington']]/100 # convert to percentages
+
+card_df = regional_df.reset_index(drop=True).join(national_df)
+
+driver.quit() #quit driver
+
+# Upload to Google Sheets
+workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
+
+upload_gsheets(client_secret, 
+               workbook_name, 
+               [card_df])
+
+format_gsheets(client_secret, 
+               workbook_name, 
+               'B', 
+               'D', 
+               'PERCENT', 
+               '0.0%')
+
+format_gsheets(client_secret, 
+               workbook_name, 
+               'A', 
+               'A', 
+               'DATE', 
+               'dd-mmm-yy')
 
