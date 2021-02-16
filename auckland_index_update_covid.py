@@ -334,27 +334,25 @@ df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date',
                'iso_3166_2_code':'string', 
                'census_fips_code':'float',  
                'retail_and_recreation_percent_change_from_baseline':'float', 
-               'grocery_raw_and_pharmacy_percent_change_from_baseline':'float', 
-               'parks_raw_percent_change_from_baseline':'float', 
-               'transit_stations_raw_percent_change_from_baseline':'float', 
-               'workplaces_raw_percent_change_from_baseline':'float', 
-               'residential_raw_percent_change_from_baseline':'float'})
+               'grocery_and_pharmacy_percent_change_from_baseline':'float', 
+               'parks_percent_change_from_baseline':'float', 
+               'transit_stations_percent_change_from_baseline':'float', 
+               'workplaces_percent_change_from_baseline':'float', 
+               'residential_percent_change_from_baseline':'float'})
 
+#%%
 #Rename columns
-df.columns = ['country_region_code', 
-                'country_region', 
-                'sub_region_1', 
-                'sub_region_2', 
-                'metro_area', 
-                'iso_3166_2_code', 
-                'census_fips_code', 
-                'retail_rec_raw', 
-                'grocery_raw', 
-                'parks_raw', 
-                'transit_stations_raw', 
-                'workplaces_raw', 
-                'residential_raw']
+df.rename(columns={'retail_and_recreation_percent_change_from_baseline':'retail_rec_raw', 
+               'grocery_and_pharmacy_percent_change_from_baseline':'grocery_raw', 
+               'parks_percent_change_from_baseline':'parks_raw', 
+               'transit_stations_percent_change_from_baseline':'transit_stations_raw', 
+               'workplaces_percent_change_from_baseline':'workplaces_raw', 
+               'residential_percent_change_from_baseline':'residential_raw'},
+          inplace=True)
 
+print(df)
+
+# %%
 #Slice dataframe by Auckland
 auckland_df = df.loc[df['sub_region_1'] == 'Auckland',
             ['retail_rec_raw', 
@@ -377,11 +375,11 @@ ma = ['Retail & Recreation',
       'Transit Stations', 
       'Workplaces', 
       'Residential']
-
+#%%
 #Create moving averages
 for i, x in zip(raw, ma):
     auckland_df[x] = (auckland_df[i].rolling(7).mean())/100
-
+#%%
 #Reset index for Google Sheets so date is a column and in correct format
 auckland_df = auckland_df.reset_index()
 auckland_df['date'] = auckland_df['date'].dt.strftime('%m/%d/%Y')
@@ -771,7 +769,7 @@ format_gsheets(client_secret,
 # %% CONSUMER SPENDING
 URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
 options = Options()
-options.headless = False #This setting stops a browser window from opening
+options.headless = True #This setting stops a browser window from opening
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 driver.get(URL)
