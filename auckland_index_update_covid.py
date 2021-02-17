@@ -166,14 +166,45 @@ stats_df = stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') |
 
 stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 
-
-
 #%% COVID CASES
 
 # Create cases dataframe from ESR nz covid dashboard
-# csv_file is downloaded from 'csv download' link in the 'source' section of dashboard
-csv_file = 'data_files/source_case_curve.csv'
-cases_df = (pd.read_csv(csv_file,
+URL = 'https://nzcoviddashboard.esr.cri.nz/#!/source'
+options = Options()
+options.headless = True
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+
+driver.get(URL)
+
+try:
+    element = WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="time-period-select"]'))
+        )
+    element.click() # Select drop down
+    
+    element = WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="time-period-select"]/div/div/div/div[2]/div/div[1]'))
+        )
+    element.click() # Select 'All'
+    
+    element = WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="source-viewCurveData"]'))
+        )
+    element.click() # Click 'View data'
+    
+    element = WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="source-downloadCurveData"]'))
+        )
+    
+    time.sleep(5)
+    
+    cases_download = element.get_attribute('href') # Copy download link for read_csv below
+
+finally:
+    driver.quit()    
+
+cases_df = (pd.read_csv(cases_download,
                        skiprows=3)).dropna(how='any')
 cases_df['Imported or import-related'] = (cases_df['Daily imported cases']
                                           + cases_df['Daily import-related cases'])
