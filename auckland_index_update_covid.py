@@ -206,10 +206,10 @@ finally:
 
 cases_df = (pd.read_csv(cases_download,
                        skiprows=3)).dropna(how='any')
-cases_df['Imported or import-related'] = (cases_df['Daily imported cases']
-                                          + cases_df['Daily import-related cases'])
-cases_df['Locally acquired'] = (cases_df['Daily locally acquired cases  epidemiologically linked']
-                                + cases_df['Daily locally acquired cases  unknown source'])
+cases_df['Imported or import-related'] = (cases_df['Daily imported case']
+                                          + cases_df['Daily import-related case'])
+cases_df['Locally acquired'] = (cases_df['Daily locally acquired  epidemiologically linked']
+                                + cases_df['Daily locally acquired case  unknown source'])
 cases_df['Date'] = pd.to_datetime(cases_df['Date'], format='%d/%m/%Y')
 cases_df = cases_df.iloc[::-1].reset_index() #Reverse date order from oldest to newest
 
