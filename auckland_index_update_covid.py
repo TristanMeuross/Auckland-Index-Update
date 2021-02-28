@@ -819,6 +819,7 @@ national_df.drop(national_df.index[0],
                  inplace=True)
 national_df.reset_index(inplace=True)
 national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
+national_df.loc[48:,'year']='2021' # Update 2021 year
 national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
 national_df.drop(['Domestic', 
                   'International', 
@@ -854,6 +855,7 @@ regional_df.drop(regional_df.index[0],
                  inplace=True)
 regional_df.reset_index(inplace=True)
 regional_df['year'] = '2020' #Create year column to convert date column (date column has no year)
+regional_df.loc[48:,'year']='2021' # Update 2021 year
 regional_df['Date'] = pd.to_datetime(regional_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
 regional_df = regional_df[['Date', 'Auckland', 'Wellington']]
 regional_df[['Auckland','Wellington']] = regional_df[['Auckland','Wellington']]/100 # convert to percentages
