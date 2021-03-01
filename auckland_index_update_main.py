@@ -16,7 +16,7 @@ import zipfile
 import urllib.request
 
 # Location of RIMU Datasheet
-rimu_file = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\Data Files\Economic Update Key Charts.xlsx'
+rimu_file = 'data_files/Economic Update Key Charts.xlsx'
 
 # Authorizes uploads to Google Sheets
 client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
@@ -101,7 +101,7 @@ def format_gsheets(credentials, workbook_name, range_start, range_end,
         pygsheets.DataRange(
             start=range_start, end=range_end, worksheet = sh[i]
           ).apply_format(mc)
-        
+
 # Download HLFS csv file
 URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
 options = Options()
@@ -649,7 +649,6 @@ format_gsheets(client_secret,
 # -----INFLATION-----
 # Create inflation dataframe from rbnz excel file
 excel_file = 'https://www.rbnz.govt.nz/-/media/ReserveBank/Files/Statistics/tables/m1/hm1.xlsx'
-
 headers = ['Date',
            'New Zealand']
 inflation_df = pd.read_excel(excel_file,
