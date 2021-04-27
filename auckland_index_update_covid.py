@@ -155,8 +155,7 @@ stats_df = pd.read_csv(stats_download,
                               'value':'object'})
 
 # Need to filter for needed datasets as the 'parameter' column has non-date values
-stats_df = stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') |
-                        (stats_df['series_name']=='Auckland - Light vehicles') |
+stats_df = stats_df.loc[(stats_df['indicator_name']=='Weekly traffic count') |
                         (stats_df['indicator_name']=='Daily border crossings - arrivals') |
                         (stats_df['indicator_name']=='Jobseeker support by MSD region') |
                         (stats_df['indicator_name']=='Number of recipients of CIRP') |
@@ -468,15 +467,17 @@ format_gsheets(client_secret,
 #%% TRANSPORT
 
 #AT excel file download name changes, so needs to be scraped
-URL_at = 'https://at.govt.nz/about-us/reports-publications/at-metro-patronage-report/'
-page = requests.get(URL_at)
-soup = bs(page.content, 'html.parser')
-link = soup.find('a',href=re.compile('daily-patronage-for-at-web')).get('href')
+URL = 'https://at.govt.nz/about-us/reports-publications/at-metro-patronage-report/'
+options = Options()
+options.headless = True #This setting stops a browser window from opening
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+driver.get(URL) #opens URL on chrome to activate javascript
+at_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
+driver.quit() #quits browser
+link = at_soup.find('a',href=re.compile('daily-patronage-for-at-web')).get('href')
 
-at_download = requests.get(('https://at.govt.nz/' + link), headers=header)
-    
-
-at_df = pd.concat((pd.read_excel(at_download.content, 
+at_df = pd.concat((pd.read_excel(('https://at.govt.nz/' + link), 
                                 sheet_name=None, 
                                 skiprows=4,
                                 parse_dates=['Business Date'])), 
@@ -531,37 +532,43 @@ download_df = download_df.iloc[:,:3]
 pt_df = download_df.join(pt_df_21['2021'])
 
 # Create light and heavy traffic dataframes
-light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') & 
+light_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
+                            (stats_df['sub_series_name']=='Light vehicles') &
                             (stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
+light_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
+                            (stats_df['sub_series_name']=='Light vehicles') &
                             (stats_df['parameter']>='2020-01-01') &
                             (stats_df['parameter']<='2020-12-30'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-light_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Light vehicles') &
+light_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
+                            (stats_df['sub_series_name']=='Light vehicles') &
                             (stats_df['parameter']>='2021-01-01') &
                             (stats_df['parameter']<='2021-12-28'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
+                            (stats_df['sub_series_name']=='Heavy vehicles') & 
                             (stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-heavy_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+heavy_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
+                            (stats_df['sub_series_name']=='Heavy vehicles') &
                             (stats_df['parameter']>='2020-01-01') &
                             (stats_df['parameter']<='2020-12-30'),
                             ['parameter',
                              'value']]).reset_index(drop=True)
 
-heavy_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland - Heavy vehicles') & 
+heavy_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
+                            (stats_df['sub_series_name']=='Heavy vehicles') & 
                             (stats_df['parameter']>='2021-01-01') &
                             (stats_df['parameter']<='2021-12-28'),
                             ['parameter',
@@ -622,6 +629,7 @@ format_gsheets(client_secret,
                'DATE', 
                'dd-mmm', 
                sheets=[0,1,2])
+
 # %% JOBS
 
 # Create filled jobs dataframe via stats nz covid portal data
