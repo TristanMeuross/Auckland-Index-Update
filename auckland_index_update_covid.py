@@ -9,7 +9,6 @@ Created on Tue Aug  4 13:19:28 2020
 
 import pandas as pd
 import pygsheets
-import requests
 from bs4 import BeautifulSoup as bs
 import re
 from selenium import webdriver
