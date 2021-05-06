@@ -21,6 +21,8 @@ import numpy as np
 from functools import reduce
 import os
 
+from Python import stats_odata as odata
+
 # Authorizes uploads to Google Sheets
 client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
 gc = pygsheets.authorize(service_file=client_secret)
@@ -691,45 +693,48 @@ format_gsheets(client_secret,
 
 #%% ARRIVALS
 
-#Create arrivals dataframe
-arrivals_df_19 = (stats_df.loc[(stats_df['parameter']>='2019-01-01') &
-                            (stats_df['parameter']<='2019-12-31') &
-                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
-                            (stats_df['series_name']=='Total'),
-                            ['parameter',
-                              'value']]).reset_index(drop=True)
+# Set the variables for arrivals data
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        Measure eq 'Border crossings - arrivals' and
+                        Period ge 2019-01-01 and
+                        Label1 eq 'Total')
+                &$select=Period,Value"""
+api_key = os.environ['API_KEY']
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
 
+# call the service
+arrivals_df = odata.get_odata(service, endpoint, entity, query_option, api_key, proxies)
+arrivals_df.sort_values(by='Period', inplace=True)
 
-arrivals_df_20 = (stats_df.loc[(stats_df['parameter']>='2020-01-01') &
-                            (stats_df['parameter']<='2020-12-31') &
-                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
-                            (stats_df['series_name']=='Total'),
-                            ['parameter',
-                              'value']]).reset_index(drop=True)
+# Create arrivals dataframe
+arrivals_19_df = arrivals_df.loc[(arrivals_df['Period']>='2019-01-01') &
+                            (arrivals_df['Period']<='2019-12-31')].reset_index(drop=True)
 
-arrivals_df_21 = (stats_df.loc[(stats_df['parameter']>='2021-01-01') &
-                            (stats_df['parameter']<='2021-12-31') &
-                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
-                            (stats_df['series_name']=='Total'),
-                            ['parameter',
-                              'value']]).reset_index(drop=True)
+arrivals_20_df = arrivals_df.loc[(arrivals_df['Period']>='2020-01-01') &
+                            (arrivals_df['Period']<='2020-12-31')].reset_index(drop=True)
 
-#Rename columns
-arrivals_df_19.columns = ['Date',
+arrivals_21_df = arrivals_df.loc[(arrivals_df['Period']>='2021-01-01') &
+                            (arrivals_df['Period']<='2021-12-31')].reset_index(drop=True)
+
+# Rename columns
+arrivals_19_df.columns = ['Date',
                           '2019']
-arrivals_df_20.columns = ['Date',
+arrivals_20_df.columns = ['Date',
                           '2020']
-arrivals_df_21.columns = ['Date',
+arrivals_21_df.columns = ['Date',
                           '2021']
 
 # Drop 29th Feb line from 2020 dataframe
-i = arrivals_df_20[(arrivals_df_20['Date']=='2020-02-29')].index
-arrivals_df_20.drop(i, inplace=True)
-
+i = arrivals_20_df[(arrivals_20_df['Date']=='2020-02-29')].index
+arrivals_20_df.drop(i, inplace=True)
+arrivals_20_df.reset_index(drop=True, inplace=True)
 
 # Join three dataframes together
-arrivals_df = arrivals_df_19.join([arrivals_df_20['2020'], arrivals_df_21['2021']])
-
+arrivals_df = arrivals_19_df.join([arrivals_20_df['2020'], arrivals_21_df['2021']])
 
 # Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
