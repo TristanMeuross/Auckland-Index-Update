@@ -633,17 +633,24 @@ format_gsheets(client_secret,
                sheets=[0,1,2])
 
 # %% JOBS
+# Set the variables for filled jobs data
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "EmploymentIndicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'MEI4.1' and
+                        Geo eq 'Auckland Region')
+                &$select=Period,Value"""
+api_key = os.environ['API_KEY']
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
 
-# Create filled jobs dataframe via stats nz covid portal data
-filledjobs_df = stats_df.loc[(stats_df['indicator_name']=='Monthly filled jobs (by region)') &
-                             (stats_df['series_name']=='Auckland')]
+# call the service
+filledjobs_df = odata.get_odata(service, endpoint, entity, query_option, api_key, proxies)
 
-filledjobs_df = filledjobs_df[['parameter',
-                               'value']]
-filledjobs_df.rename(columns={'parameter':'Month',
-                              'value':'Auckland'},
+filledjobs_df.rename(columns={'Period':'Month',
+                              'Value':'Auckland'},
                      inplace=True)
-
 
 # Create dataframe for jobs online via stats nz covid portal data
 jobsonline_df = (stats_df.loc[(stats_df['indicator_name']=='Jobs online measure by region') &
