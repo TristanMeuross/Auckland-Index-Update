@@ -157,11 +157,9 @@ stats_df = pd.read_csv(stats_download,
 
 # Need to filter for needed datasets as the 'parameter' column has non-date values
 stats_df = stats_df.loc[(stats_df['indicator_name']=='Weekly traffic count') |
-                        (stats_df['indicator_name']=='Daily border crossings - arrivals') |
                         (stats_df['indicator_name']=='Jobseeker support by MSD region') |
                         (stats_df['indicator_name']=='Number of recipients of CIRP') |
                         (stats_df['indicator_name']=='Jobs online measure by region') |
-                        (stats_df['indicator_name']=='Monthly filled jobs (by region)') |
                         (stats_df['indicator_name']=='Tests per day')]
 
 stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
