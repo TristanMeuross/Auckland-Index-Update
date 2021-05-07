@@ -21,6 +21,8 @@ import numpy as np
 from functools import reduce
 import os
 
+from Python import stats_odata as odata
+
 # Authorizes uploads to Google Sheets
 client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
 gc = pygsheets.authorize(service_file=client_secret)
@@ -155,11 +157,9 @@ stats_df = pd.read_csv(stats_download,
 
 # Need to filter for needed datasets as the 'parameter' column has non-date values
 stats_df = stats_df.loc[(stats_df['indicator_name']=='Weekly traffic count') |
-                        (stats_df['indicator_name']=='Daily border crossings - arrivals') |
                         (stats_df['indicator_name']=='Jobseeker support by MSD region') |
                         (stats_df['indicator_name']=='Number of recipients of CIRP') |
                         (stats_df['indicator_name']=='Jobs online measure by region') |
-                        (stats_df['indicator_name']=='Monthly filled jobs (by region)') |
                         (stats_df['indicator_name']=='Tests per day')]
 
 stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
@@ -631,17 +631,24 @@ format_gsheets(client_secret,
                sheets=[0,1,2])
 
 # %% JOBS
+# Set the variables for filled jobs data
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "EmploymentIndicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'MEI4.1' and
+                        Geo eq 'Auckland Region')
+                &$select=Period,Value"""
+api_key = os.environ['API_KEY']
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
 
-# Create filled jobs dataframe via stats nz covid portal data
-filledjobs_df = stats_df.loc[(stats_df['indicator_name']=='Monthly filled jobs (by region)') &
-                             (stats_df['series_name']=='Auckland')]
+# call the service
+filledjobs_df = odata.get_odata(service, endpoint, entity, query_option, api_key, proxies)
 
-filledjobs_df = filledjobs_df[['parameter',
-                               'value']]
-filledjobs_df.rename(columns={'parameter':'Month',
-                              'value':'Auckland'},
+filledjobs_df.rename(columns={'Period':'Month',
+                              'Value':'Auckland'},
                      inplace=True)
-
 
 # Create dataframe for jobs online via stats nz covid portal data
 jobsonline_df = (stats_df.loc[(stats_df['indicator_name']=='Jobs online measure by region') &
@@ -691,45 +698,48 @@ format_gsheets(client_secret,
 
 #%% ARRIVALS
 
-#Create arrivals dataframe
-arrivals_df_19 = (stats_df.loc[(stats_df['parameter']>='2019-01-01') &
-                            (stats_df['parameter']<='2019-12-31') &
-                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
-                            (stats_df['series_name']=='Total'),
-                            ['parameter',
-                              'value']]).reset_index(drop=True)
+# Set the variables for arrivals data
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        Measure eq 'Border crossings - arrivals' and
+                        Period ge 2019-01-01 and
+                        Label1 eq 'Total')
+                &$select=Period,Value"""
+api_key = os.environ['API_KEY']
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
 
+# call the service
+arrivals_df = odata.get_odata(service, endpoint, entity, query_option, api_key, proxies)
+arrivals_df.sort_values(by='Period', inplace=True)
 
-arrivals_df_20 = (stats_df.loc[(stats_df['parameter']>='2020-01-01') &
-                            (stats_df['parameter']<='2020-12-31') &
-                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
-                            (stats_df['series_name']=='Total'),
-                            ['parameter',
-                              'value']]).reset_index(drop=True)
+# Create arrivals dataframe
+arrivals_19_df = arrivals_df.loc[(arrivals_df['Period']>='2019-01-01') &
+                            (arrivals_df['Period']<='2019-12-31')].reset_index(drop=True)
 
-arrivals_df_21 = (stats_df.loc[(stats_df['parameter']>='2021-01-01') &
-                            (stats_df['parameter']<='2021-12-31') &
-                            (stats_df['indicator_name']=='Daily border crossings - arrivals') &
-                            (stats_df['series_name']=='Total'),
-                            ['parameter',
-                              'value']]).reset_index(drop=True)
+arrivals_20_df = arrivals_df.loc[(arrivals_df['Period']>='2020-01-01') &
+                            (arrivals_df['Period']<='2020-12-31')].reset_index(drop=True)
 
-#Rename columns
-arrivals_df_19.columns = ['Date',
+arrivals_21_df = arrivals_df.loc[(arrivals_df['Period']>='2021-01-01') &
+                            (arrivals_df['Period']<='2021-12-31')].reset_index(drop=True)
+
+# Rename columns
+arrivals_19_df.columns = ['Date',
                           '2019']
-arrivals_df_20.columns = ['Date',
+arrivals_20_df.columns = ['Date',
                           '2020']
-arrivals_df_21.columns = ['Date',
+arrivals_21_df.columns = ['Date',
                           '2021']
 
 # Drop 29th Feb line from 2020 dataframe
-i = arrivals_df_20[(arrivals_df_20['Date']=='2020-02-29')].index
-arrivals_df_20.drop(i, inplace=True)
-
+i = arrivals_20_df[(arrivals_20_df['Date']=='2020-02-29')].index
+arrivals_20_df.drop(i, inplace=True)
+arrivals_20_df.reset_index(drop=True, inplace=True)
 
 # Join three dataframes together
-arrivals_df = arrivals_df_19.join([arrivals_df_20['2020'], arrivals_df_21['2021']])
-
+arrivals_df = arrivals_19_df.join([arrivals_20_df['2020'], arrivals_21_df['2021']])
 
 # Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
