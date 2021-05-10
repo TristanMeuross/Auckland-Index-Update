@@ -20,6 +20,7 @@ import time
 import numpy as np
 from functools import reduce
 import os
+import requests
 
 from Python import stats_odata as odata
 from modules.my_modules import upload_gsheets, format_gsheets, delete_file
@@ -72,7 +73,8 @@ stats_df = stats_df.loc[(stats_df['indicator_name']=='Weekly traffic count') |
                         (stats_df['indicator_name']=='Jobseeker support by MSD region') |
                         (stats_df['indicator_name']=='Number of recipients of CIRP') |
                         (stats_df['indicator_name']=='Jobs online measure by region') |
-                        (stats_df['indicator_name']=='Tests per day')]
+                        (stats_df['indicator_name']=='Tests per day') |
+                        (stats_df['indicator_name']=='Covid-19 Vaccines Administered – Daily total')]
 
 stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 
@@ -164,7 +166,7 @@ cumulative_df = cases_df[['Date',
 
 # Create tests per day dataframe from stats_df
 tests_df = ((stats_df.loc[(stats_df['indicator_name']=='Tests per day') &
-                          (stats_df['series_name']=='Tests by day'),
+                          (stats_df['sub_series_name']=='Tests by day'),
                             ['parameter',
                              'value']]).reset_index(drop=True)).copy()
 tests_df['value'] = tests_df['value'].astype(float)
@@ -173,13 +175,45 @@ tests_df.rename(columns={'parameter':'Date',
                          'value':'Tests per day'},
                 inplace=True)
 
+# Create cumulative vaccines dataframe from MOH datasheet
+URL = 'https://www.health.govt.nz/our-work/diseases-and-conditions/covid-19-novel-coronavirus/covid-19-data-and-statistics/covid-19-vaccine-data'
+options = Options()
+options.headless = True #This setting stops a browser window from opening
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+driver.get(URL) #opens URL on chrome to activate javascript
+soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
+driver.quit() #quits browser
+
+link = soup.find('a', href=re.compile('covid_vaccinations_')).get('href')
+excel_path = ('https://www.health.govt.nz' + link)
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
+r = requests.get(excel_path, headers=header, proxies=proxies, verify=False) # Collects excel datasheet for use in read_excel
+
+vaccines_cum_df = pd.read_excel(r.content,
+                              sheet_name='Cumulative Plan',
+                              usecols='A,B,D').dropna(thresh=2)
+
+# Create share of population vaccinated dataframe from ourworldindata.org
+csv_file = 'https://github.com/owid/covid-19-data/raw/master/public/data/vaccinations/vaccinations.csv'
+vacc_share_df = pd.read_csv(csv_file)
+vacc_share_df = (vacc_share_df.loc[vacc_share_df['location']=='New Zealand',
+                                 ['date',
+                                  'people_vaccinated_per_hundred',
+                                  'people_fully_vaccinated_per_hundred']]).dropna()
+vacc_share_df['date'] = pd.to_datetime(vacc_share_df['date'], format='%Y-%m-%d')
+vacc_share_df.rename(columns={'people_vaccinated_per_hundred':'% of population vaccinated',
+                              'people_fully_vaccinated_per_hundred':'% of population fully vaccinated'}, inplace=True)
+
 # Upload to Google Sheets
-cases_dataframes = [daily_df, cumulative_df, tests_df]
+cases_dataframes = [daily_df, cumulative_df, tests_df, vaccines_cum_df, vacc_share_df]
 workbook_name = '1. Auckland-index-covid-dashboard-covid-cases'
+
 upload_gsheets(client_secret,
                workbook_name,
                cases_dataframes, 
-               sheets=[0, 1, 2])
+               sheets=[0,1,2,3,4])
 
 # Format cells
 format_gsheets(client_secret, 
@@ -188,7 +222,7 @@ format_gsheets(client_secret,
                'A', 
                'DATE', 
                'dd-mmm-yy', 
-               sheets=[0, 1, 2])
+               sheets=[0,1,2,3,4])
 
 format_gsheets(client_secret, 
                workbook_name, 
@@ -196,7 +230,15 @@ format_gsheets(client_secret,
                'E', 
                'NUMBER', 
                '0', 
-               sheets=[0, 1, 2])
+               sheets=[0,1,2,3])
+
+format_gsheets(client_secret, 
+               workbook_name, 
+               'B', 
+               'E', 
+               'NUMBER', 
+               '0.00', 
+               sheets=[4])
 
 #%% UNEMPLOYMENT BENEFITS AND PAYMENTS
 
