@@ -31,7 +31,7 @@ gc = pygsheets.authorize(service_file=client_secret)
 
 # header used for requests module authorisation
 header = {
-'User-Agent': 
+'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
@@ -52,17 +52,17 @@ try:
         EC.presence_of_element_located((By.XPATH, '//*[@id="download_data-show"]'))
         )
     element.click()
-    
+
     element = WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="download_data-downloadData"]'))
         )
-    
+
     time.sleep(5)
-    
+
     stats_download = element.get_attribute('href')
 
 finally:
-    driver.quit()    
+    driver.quit()
 
 stats_df = pd.read_csv(stats_download,
                         dtype={'parameter':'object',
@@ -94,27 +94,27 @@ try:
         EC.presence_of_element_located((By.XPATH, '//*[@id="time-period-select"]'))
         )
     element.click() # Select drop down
-    
+
     element = WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="time-period-select"]/div/div/div/div[2]/div/div[1]'))
         )
     element.click() # Select 'All'
-    
+
     element = WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="source-viewCurveData"]'))
         )
     element.click() # Click 'View data'
-    
+
     element = WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="source-downloadCurveData"]'))
         )
-    
+
     time.sleep(5)
-    
+
     cases_download = element.get_attribute('href') # Copy download link for read_csv below
 
 finally:
-    driver.quit()    
+    driver.quit()
 
 cases_df = (pd.read_csv(cases_download,
                        skiprows=3)).dropna(how='any')
@@ -212,32 +212,32 @@ workbook_name = '1. Auckland-index-covid-dashboard-covid-cases'
 
 upload_gsheets(client_secret,
                workbook_name,
-               cases_dataframes, 
+               cases_dataframes,
                sheets=[0,1,2,3,4])
 
 # Format cells
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
-               'dd-mmm-yy', 
+format_gsheets(client_secret,
+               workbook_name,
+               'A',
+               'A',
+               'DATE',
+               'dd-mmm-yy',
                sheets=[0,1,2,3,4])
 
-format_gsheets(client_secret, 
-               workbook_name, 
-               'B', 
-               'E', 
-               'NUMBER', 
-               '0', 
+format_gsheets(client_secret,
+               workbook_name,
+               'B',
+               'E',
+               'NUMBER',
+               '0',
                sheets=[0,1,2,3])
 
-format_gsheets(client_secret, 
-               workbook_name, 
-               'B', 
-               'E', 
-               'NUMBER', 
-               '0.00', 
+format_gsheets(client_secret,
+               workbook_name,
+               'B',
+               'E',
+               'NUMBER',
+               '0.00',
                sheets=[4])
 
 #%% UNEMPLOYMENT BENEFITS AND PAYMENTS
@@ -252,8 +252,8 @@ jobseeker_df['value'] = jobseeker_df['value'].astype(float)
 #  2020 CIRP dataframe from MSD datasheet
 excel_path = ('https://www.msd.govt.nz/documents/about-msd-and-our-work/publications-resources/statistics/benefit/2020/income-support-and-wage-subsidy-weekly-update/data-file-income-support-and-wage-subsidy-weekly-update-25-december-2020.xlsx')
 
-cirp_df_20 = pd.read_excel(excel_path, 
-                    sheet_name='1. Timeseries-MainBenefits-CIRP', 
+cirp_df_20 = pd.read_excel(excel_path,
+                    sheet_name='1. Timeseries-MainBenefits-CIRP',
                     skiprows=59,
                     nrows=1).dropna(axis=1) #dropna removes empty values
 cirp_df_20 = cirp_df_20.iloc[:,1:].transpose().reset_index()
@@ -267,14 +267,14 @@ driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
 driver.get(URL) #opens URL on chrome to activate javascript
 soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
 driver.quit() #quits browser
-                     
+
 link = soup.find('a', href=re.compile(
     'data-file-income-support-and-wage-subsidy-weekly-update-')).get('href')
 
 excel_path = ('https://www.msd.govt.nz/' + link)
 
-cirp_df_21 = pd.read_excel(excel_path, 
-                    sheet_name='1. Timeseries-MainBenefits-CIRP', 
+cirp_df_21 = pd.read_excel(excel_path,
+                    sheet_name='1. Timeseries-MainBenefits-CIRP',
                     skiprows=59,
                     nrows=1).dropna(axis=1) #dropna removes empty values
 cirp_df_21 = cirp_df_21.iloc[:,1:].transpose().reset_index()
@@ -284,7 +284,7 @@ cirp_df = pd.concat([cirp_df_20, cirp_df_21])
 cirp_df.reset_index(inplace=True,
                     drop=True)
 
-# As MSD only released national data, Auckland was calculated as approximately 39.5% of 
+# As MSD only released national data, Auckland was calculated as approximately 39.5% of
 # total up to 7th August and 43% from 14th August to 11th Sept and 49% from 18th Sept onwards
 cirp_df.iloc[:,1] = pd.concat([(cirp_df.iloc[0:9,1]*0.395).round(0),
                                (cirp_df.iloc[9:14,1]*0.43).round(0),
@@ -310,16 +310,16 @@ auckland_df['COVID-19 Income Relief Payment']  = auckland_df[['COVID-19 Income R
 #Upload to Google Sheets
 workbook_name = '2. Auckland-index-covid-dashboard-unemployment-benefits-and-payments'
 
-upload_gsheets(client_secret, 
-               workbook_name, 
+upload_gsheets(client_secret,
+               workbook_name,
                [auckland_df])
 
 #Format Google Sheet cells
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
+format_gsheets(client_secret,
+               workbook_name,
+               'A',
+               'A',
+               'DATE',
                'dd-mmm-yy')
 
 
@@ -329,51 +329,51 @@ format_gsheets(client_secret,
 csv_path = 'https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv'
 
 #Create pandas dataframe from CSV data
-df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date', 
-        dtype={'country_region_code':'string', 
-               'country_region':'string', 
-               'sub_region_1':'string', 
-               'sub_region_2':'string', 
-               'metro_area':'string', 
-               'iso_3166_2_code':'string', 
-               'census_fips_code':'float',  
-               'retail_and_recreation_percent_change_from_baseline':'float', 
-               'grocery_and_pharmacy_percent_change_from_baseline':'float', 
-               'parks_percent_change_from_baseline':'float', 
-               'transit_stations_percent_change_from_baseline':'float', 
-               'workplaces_percent_change_from_baseline':'float', 
+df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date',
+        dtype={'country_region_code':'string',
+               'country_region':'string',
+               'sub_region_1':'string',
+               'sub_region_2':'string',
+               'metro_area':'string',
+               'iso_3166_2_code':'string',
+               'census_fips_code':'float',
+               'retail_and_recreation_percent_change_from_baseline':'float',
+               'grocery_and_pharmacy_percent_change_from_baseline':'float',
+               'parks_percent_change_from_baseline':'float',
+               'transit_stations_percent_change_from_baseline':'float',
+               'workplaces_percent_change_from_baseline':'float',
                'residential_percent_change_from_baseline':'float'})
 
 #Rename columns
-df.rename(columns={'retail_and_recreation_percent_change_from_baseline':'retail_rec_raw', 
-               'grocery_and_pharmacy_percent_change_from_baseline':'grocery_raw', 
-               'parks_percent_change_from_baseline':'parks_raw', 
-               'transit_stations_percent_change_from_baseline':'transit_stations_raw', 
-               'workplaces_percent_change_from_baseline':'workplaces_raw', 
+df.rename(columns={'retail_and_recreation_percent_change_from_baseline':'retail_rec_raw',
+               'grocery_and_pharmacy_percent_change_from_baseline':'grocery_raw',
+               'parks_percent_change_from_baseline':'parks_raw',
+               'transit_stations_percent_change_from_baseline':'transit_stations_raw',
+               'workplaces_percent_change_from_baseline':'workplaces_raw',
                'residential_percent_change_from_baseline':'residential_raw'},
           inplace=True)
 
 #Slice dataframe by Auckland
 auckland_df = df.loc[df['sub_region_1'] == 'Auckland',
-            ['retail_rec_raw', 
-             'grocery_raw', 
+            ['retail_rec_raw',
+             'grocery_raw',
              'parks_raw',
-             'transit_stations_raw', 
-             'workplaces_raw', 
+             'transit_stations_raw',
+             'workplaces_raw',
              'residential_raw']]
 
 raw = ['retail_rec_raw',
-       'grocery_raw', 
-       'parks_raw', 
-       'transit_stations_raw', 
-       'workplaces_raw', 
+       'grocery_raw',
+       'parks_raw',
+       'transit_stations_raw',
+       'workplaces_raw',
        'residential_raw']
 
-ma = ['Retail & Recreation', 
-      'Grocery & Pharmacy', 
-      'Parks', 
-      'Transit Stations', 
-      'Workplaces', 
+ma = ['Retail & Recreation',
+      'Grocery & Pharmacy',
+      'Parks',
+      'Transit Stations',
+      'Workplaces',
       'Residential']
 
 #Create moving averages
@@ -386,35 +386,35 @@ auckland_df['date'] = auckland_df['date'].dt.strftime('%m/%d/%Y')
 
 #Select relevant columns for G Sheets in correct order
 auckland_df = auckland_df.loc[6:,
-                ['date', 
-                 'Retail & Recreation', 
-                 'Grocery & Pharmacy', 
-                 'Parks', 
-                 'Transit Stations', 
-                 'Workplaces', 
+                ['date',
+                 'Retail & Recreation',
+                 'Grocery & Pharmacy',
+                 'Parks',
+                 'Transit Stations',
+                 'Workplaces',
                  'Residential']]
 
 
 #Upload to Google Sheets
 workbook_name = '4. Auckland-index-covid-dashboard-mobility'
 
-upload_gsheets(client_secret, 
-               workbook_name, 
+upload_gsheets(client_secret,
+               workbook_name,
                [auckland_df])
 
 #Format cells
-format_gsheets(client_secret, 
-               workbook_name, 
-               'B', 
-               'G', 
-               'PERCENT', 
+format_gsheets(client_secret,
+               workbook_name,
+               'B',
+               'G',
+               'PERCENT',
                '0%')
 
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
+format_gsheets(client_secret,
+               workbook_name,
+               'A',
+               'A',
+               'DATE',
                'dd-mmm-yy')
 
 
@@ -431,10 +431,10 @@ at_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browse
 driver.quit() #quits browser
 link = at_soup.find('a',href=re.compile('daily-patronage-for-at-web')).get('href')
 
-at_df = pd.concat((pd.read_excel(('https://at.govt.nz/' + link), 
-                                sheet_name=None, 
+at_df = pd.concat((pd.read_excel(('https://at.govt.nz/' + link),
+                                sheet_name=None,
                                 skiprows=4,
-                                parse_dates=['Business Date'])), 
+                                parse_dates=['Business Date'])),
                   ignore_index=True)
 
 at_df = at_df.iloc[::-1] #Reverse date order from oldest to newest
@@ -458,7 +458,7 @@ pt_df_21 = nan_df_21.append(pt_df_21, ignore_index=True) # Adds empty rows to li
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
 sh = gc.open(workbook_name)
 
-# select the third sheet 
+# select the third sheet
 wks = sh[2]
 
 # update date format for python
@@ -482,7 +482,7 @@ download_df['2020'] = download_df['2020'].str.replace(',','').astype(np.float32)
 download_df['2019'] = download_df['2019'].str.replace(',','').astype(np.float32)
 download_df = download_df.iloc[:,:3]
 
-# Join dataframes, adds the 2021 column to 
+# Join dataframes, adds the 2021 column to
 pt_df = download_df.join(pt_df_21['2021'])
 
 # Create light and heavy traffic dataframes
@@ -508,7 +508,7 @@ light_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
                              'value']]).reset_index(drop=True)
 
 heavy_df_19 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
-                            (stats_df['sub_series_name']=='Heavy vehicles') & 
+                            (stats_df['sub_series_name']=='Heavy vehicles') &
                             (stats_df['parameter']>='2019-01-01') &
                             (stats_df['parameter']<='2019-12-31'),
                             ['parameter',
@@ -522,7 +522,7 @@ heavy_df_20 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
                              'value']]).reset_index(drop=True)
 
 heavy_df_21 = (stats_df.loc[(stats_df['series_name']=='Auckland') &
-                            (stats_df['sub_series_name']=='Heavy vehicles') & 
+                            (stats_df['sub_series_name']=='Heavy vehicles') &
                             (stats_df['parameter']>='2021-01-01') &
                             (stats_df['parameter']<='2021-12-28'),
                             ['parameter',
@@ -576,12 +576,12 @@ upload_gsheets(client_secret,
                sheets=[0,1,2])
 
 #Format cells
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
-               'dd-mmm', 
+format_gsheets(client_secret,
+               workbook_name,
+               'A',
+               'A',
+               'DATE',
+               'dd-mmm',
                sheets=[0,1,2])
 
 # %% JOBS
@@ -612,12 +612,12 @@ jobsonline_df = (stats_df.loc[(stats_df['indicator_name']=='Jobs online measure 
                              'value']]).reset_index(drop=True)
 jobsonline_df['value'] = jobsonline_df['value'].astype(float)
 
-jobsonline_df = (pd.pivot_table(jobsonline_df, 
-                               values='value', 
+jobsonline_df = (pd.pivot_table(jobsonline_df,
+                               values='value',
                                columns='series_name',
                                index='parameter')).reset_index()
 
-regions = ['Auckland', 
+regions = ['Auckland',
            'Canterbury',
            'Wellington',
            'North Island (Other)',
@@ -636,9 +636,9 @@ jobsonline_df = jobsonline_df[regions]
 workbook_name = '7. Auckland-index-covid-dashboard-jobs'
 jobs_dataframes = [filledjobs_df, jobsonline_df]
 
-upload_gsheets(client_secret, 
-               workbook_name, 
-               jobs_dataframes, 
+upload_gsheets(client_secret,
+               workbook_name,
+               jobs_dataframes,
                sheets=[0,1])
 
 format_gsheets(client_secret,
@@ -721,7 +721,7 @@ driver.get(URL) #opens URL on chrome to activate javascript
 stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
 driver.quit() #quits browser
 
-# Find link for trade CSV file    
+# Find link for trade CSV file
 link = stats_soup.find('a', href=re.compile(
     'Effects-of-COVID-19-on-trade')).get('href')
 
@@ -732,13 +732,13 @@ df = pd.read_csv(csv_download)
 df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
 
 # Filter to relevant data and pivot so that categories are in columns
-filtered_df = df.loc[(df['Direction']=='Exports') & 
+filtered_df = df.loc[(df['Direction']=='Exports') &
               (df['Country']=='All') &
               (df['Transport_Mode']=='All') &
               (df['Measure']=='$')].reset_index(drop=True)
 
-pivot_df = pd.pivot_table(filtered_df, 
-                          index='Date', 
+pivot_df = pd.pivot_table(filtered_df,
+                          index='Date',
                           values='Value',
                           columns='Commodity').dropna()
 
@@ -789,7 +789,7 @@ format_gsheets(client_secret,
 # %% CONSUMER SPENDING
 URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
 options = Options()
-# options.headless = False 
+# options.headless = False
 data_folder = os.path.join(os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files') # Create's path for operating user
 prefs = {'download.default_directory' : data_folder} # Download's to project folder path as above
 options.add_experimental_option('prefs', prefs)
@@ -824,11 +824,11 @@ national_df.reset_index(inplace=True)
 national_df['year'] = '2020' #Create year column to convert date column (date column has no year)
 national_df.loc[48:,'year']='2021' # Update 2021 year
 national_df['Date'] = pd.to_datetime(national_df[['index','year']].astype(str).apply('-'.join, 1), format='%b-%d-%Y') #convert to datetime
-national_df.drop(['Domestic', 
-                  'International', 
-                  'index', 
-                  'year', 
-                  'Date'], 
+national_df.drop(['Domestic',
+                  'International',
+                  'index',
+                  'year',
+                  'Date'],
                   axis=1, inplace=True)
 national_df.rename(columns={'Total':'New Zealand'},
                         inplace=True)
@@ -870,21 +870,21 @@ driver.quit() #quit driver
 # Upload to Google Sheets
 workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
 
-upload_gsheets(client_secret, 
-               workbook_name, 
+upload_gsheets(client_secret,
+               workbook_name,
                [card_df])
 
-format_gsheets(client_secret, 
-               workbook_name, 
-               'B', 
-               'D', 
-               'PERCENT', 
+format_gsheets(client_secret,
+               workbook_name,
+               'B',
+               'D',
+               'PERCENT',
                '0.0%')
 
-format_gsheets(client_secret, 
-               workbook_name, 
-               'A', 
-               'A', 
-               'DATE', 
+format_gsheets(client_secret,
+               workbook_name,
+               'A',
+               'A',
+               'DATE',
                'dd-mmm-yy')
 

@@ -28,7 +28,7 @@ gc = pygsheets.authorize(service_file=client_secret)
 
 # header used for requests module authorisation
 header = {
-'User-Agent': 
+'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
@@ -44,8 +44,8 @@ driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
 driver.get(URL) #opens URL on chrome to activate javascript
 stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
 driver.quit() #quits browser
-      
-# Find link for Labour Market Statistics CSV file               
+
+# Find link for Labour Market Statistics CSV file
 link = stats_soup.find('a', href=re.compile(
     'Labour-market-statistics-')).get('href')
 csv_download = ('https://www.stats.govt.nz' + link)
@@ -173,7 +173,7 @@ neet_df.rename(columns={'Aged 15-19 years':'15-19 years only (%)',
 
 
 # Remove 2017 data (needed for growth rates)
-emp_levels_df = emp_levels_df.iloc[4:] 
+emp_levels_df = emp_levels_df.iloc[4:]
 emp_rates_df = emp_rates_df.iloc[4:]
 neet_df = neet_df.iloc[4:]
 
@@ -284,7 +284,7 @@ driver.get(URL) #opens URL on chrome to activate javascript
 stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
 driver.quit() #quits browser
 
-# Find link for trade CSV file (Note: using soup object from employment rates code)         
+# Find link for trade CSV file (Note: using soup object from employment rates code)
 link = stats_soup.find('a', href=re.compile(
     'building-consents-issued-')).get('href')
 csv_download = ('https://www.stats.govt.nz' + link)
@@ -318,8 +318,8 @@ consents_df['Non-residential consents growth'] = consents_df['Non-residential co
 
 # Split consents dataframe to number and growth
 consents_num_df = consents_df.loc[8:,
-                                  ['Quarter', 
-                                   'Residential consents issued', 
+                                  ['Quarter',
+                                   'Residential consents issued',
                                    'Non-residential consents issued']]
 
 consents_growth_df = consents_df.loc[8:,
@@ -533,7 +533,7 @@ emp_status_df = pd.pivot_table(emp_status_df,
                                values='Data_value',
                                columns=['Regional Council',
                                         'Persons Employed, Unemployed, Not in Labour Force (for current quarter)'])*1000
-emp_status_df.columns = [f'{i}{j}' for i,j in emp_status_df.columns] # Combine 'Region Council' and 'Persons Employed, Unemployed..' dataframe headers 
+emp_status_df.columns = [f'{i}{j}' for i,j in emp_status_df.columns] # Combine 'Region Council' and 'Persons Employed, Unemployed..' dataframe headers
 emp_status_df.rename(columns={'AucklandPersons Employed in Labour Force':'Auckland employed',
                               'AucklandPersons Unemployed in Labour Force':'Auckland unemployed',
                               'Total All Regional CouncilsPersons Employed in Labour Force':'NZ employed',
@@ -617,7 +617,7 @@ export_df = pd.pivot_table(export_df,
                           values='Value',
                           columns='Label2').reset_index()
 
-export_df['Auckland Seaport'] = export_df['Auckland (sea)'].rolling(12).sum().mul(1000) 
+export_df['Auckland Seaport'] = export_df['Auckland (sea)'].rolling(12).sum().mul(1000)
 export_df['Auckland Airport2'] = export_df['Auckland Airport'].rolling(12).sum().mul(1000)
 export_df['All New Zealand ports'] = export_df['Total All Cargo'].rolling(12).sum().mul(1000)
 export_df['All Auckland ports'] = export_df['Auckland Seaport'] + export_df['Auckland Airport2']
@@ -895,7 +895,7 @@ format_gsheets(client_secret,
 #                '0.00',
 #                sheets=[0])
 
-# # -----NZ STOCK EXCHANGE----- 
+# # -----NZ STOCK EXCHANGE-----
 # #Create NZX50 dataframe from S&P excel sheet (10 year period only)
 # excel_file = 'https://www.spglobal.com/spdji/en/idsexport/file.xls?hostIdentifier=48190c8c-42c4-46af-8d1a-0cd5db894797&redesignExport=true&languageId=1&selectedModule=PerformanceGraphView&selectedSubModule=Graph&yearFlag=tenYearFlag&indexId=92029429'
 # nzx50_df = pd.read_excel(excel_file,
@@ -910,21 +910,21 @@ format_gsheets(client_secret,
 
 # #Upload to Google Sheets
 # workbook_name = '5-Auckland-index-markets-NZX50'
-# upload_gsheets(client_secret, 
-#                workbook_name, 
+# upload_gsheets(client_secret,
+#                workbook_name,
 #                [nzx50_df])
 
 # #Format Google Sheet cells
-# format_gsheets(client_secret, 
-#                workbook_name, 
-#                'A', 
-#                'A', 
-#                'DATE', 
+# format_gsheets(client_secret,
+#                workbook_name,
+#                'A',
+#                'A',
+#                'DATE',
 #                'yyyy mmm')
 
-# format_gsheets(client_secret, 
-#                workbook_name, 
-#                'B', 
-#                'B', 
-#                'CURRENCY', 
+# format_gsheets(client_secret,
+#                workbook_name,
+#                'B',
+#                'B',
+#                'CURRENCY',
 #                '$#,##0.00')
