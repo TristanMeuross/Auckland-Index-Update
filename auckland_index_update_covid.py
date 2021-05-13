@@ -75,9 +75,6 @@ stats_df = pd.read_csv(
 # Need to filter for needed datasets as the 'parameter' column has non-date values
 stats_df = stats_df.loc[
     (stats_df['indicator_name'] == 'Weekly traffic count')
-    | (stats_df['indicator_name'] == 'Jobseeker support by MSD region')
-    | (stats_df['indicator_name'] == 'Number of recipients of CIRP')
-    | (stats_df['indicator_name'] == 'Jobs online measure by region')
     | (stats_df['indicator_name'] == 'Tests per day')
     | (stats_df['indicator_name'] == 'Covid-19 Vaccines Administered – Daily total')
 ]
@@ -724,20 +721,28 @@ filledjobs_df.rename(
     inplace=True
 )
 
-# Create dataframe for jobs online via stats nz covid portal data
-jobsonline_df = (
-    stats_df.loc[
-        (stats_df['indicator_name'] == 'Jobs online measure by region')
-        & (stats_df['parameter'] >= '2017-01-01'),
-        ['parameter', 'series_name', 'value']
-    ]
-).reset_index(drop=True)
-jobsonline_df['value'] = jobsonline_df['value'].astype(float)
+# Set the variables for the jobs online data
+endpoint = "Covid-19Indicators"
+query_option = """$filter=(
+                        ResourceID eq 'CPEMP5' and
+                        Period ge 2017-01-01)
+                &$select=Period,Geo,Value"""
+
+# Call the service
+jobsonline_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
+)
+
 jobsonline_df = pd.pivot_table(
     jobsonline_df,
-    values='value',
-    columns='series_name',
-    index='parameter'
+    values='Value',
+    columns='Geo',
+    index='Period'
 ).reset_index()
 
 # Rebase index to Jan 2017
@@ -754,7 +759,7 @@ for i in regions:
         jobsonline_df[i] / jobsonline_df.loc[0, i] * 100
     ).round(1)
 
-jobsonline_df.rename(columns={'parameter': 'Date'}, inplace=True)
+jobsonline_df.rename(columns={'Period': 'Date'}, inplace=True)
 regions.insert(0, 'Date')  # add date column to list
 
 jobsonline_df = jobsonline_df[regions]
@@ -780,6 +785,15 @@ format_gsheets(
     sheets=[0, 1]
 )
 
+format_gsheets(
+    client_secret,
+    workbook_name,
+    'B',
+    'F',
+    'NUMBER',
+    '#.0',
+    sheets=[1]
+)
 
 # %% ARRIVALS
 
