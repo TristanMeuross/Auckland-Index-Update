@@ -75,9 +75,6 @@ stats_df = pd.read_csv(
 # Need to filter for needed datasets as the 'parameter' column has non-date values
 stats_df = stats_df.loc[
     (stats_df['indicator_name'] == 'Weekly traffic count')
-    | (stats_df['indicator_name'] == 'Jobseeker support by MSD region')
-    | (stats_df['indicator_name'] == 'Number of recipients of CIRP')
-    | (stats_df['indicator_name'] == 'Jobs online measure by region')
     | (stats_df['indicator_name'] == 'Tests per day')
     | (stats_df['indicator_name'] == 'Covid-19 Vaccines Administered – Daily total')
 ]
@@ -305,55 +302,47 @@ format_gsheets(
 
 # %% UNEMPLOYMENT BENEFITS AND PAYMENTS
 
-# Create Jobseeker dataframe from stats_df
-jobseeker_df = (
-    stats_df.loc[
-        (stats_df['indicator_name'] == 'Jobseeker support by MSD region')
-        & (stats_df['sub_series_name'] == 'Auckland metro'),
-        ['parameter', 'value']
-    ]
-).reset_index(drop=True)
-jobseeker_df['value'] = jobseeker_df['value'].astype(float)
+# Set the variables for Jobseeker by region data
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'CPBEN7' and
+                        Geo eq 'Auckland metro')
+                &$select=Period,Value"""
+api_key = os.environ['API_KEY']
+proxies = {'http': os.environ['HTTP_PROXY2'],
+           'https': os.environ['HTTPS_PROXY2']}
 
-#  2020 CIRP dataframe from MSD datasheet
-excel_path = ('https://www.msd.govt.nz/documents/about-msd-and-our-work/publications-resources/statistics/benefit/2020/income-support-and-wage-subsidy-weekly-update/data-file-income-support-and-wage-subsidy-weekly-update-25-december-2020.xlsx')
-
-cirp_df_20 = pd.read_excel(
-    excel_path,
-    sheet_name='1. Timeseries-MainBenefits-CIRP',
-    skiprows=59,
-    nrows=1
-).dropna(axis=1)  # dropna removes empty values
-cirp_df_20 = cirp_df_20.iloc[:, 1:].transpose().reset_index()
-
-# Create 2021 CIRP dataframe from MSD datasheet
-URL = 'https://www.msd.govt.nz/about-msd-and-our-work/publications-resources/statistics/weekly-reporting/index.html'
-options = Options()
-options.headless = True  # This setting stops a browser window from opening
-driver = webdriver.Chrome(
-    executable_path=r'C:\windows\chromedriver',
-    options=options
+# Call the service
+jobseeker_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
 )
-driver.get(URL)  # opens URL on chrome to activate javascript
-soup = bs(driver.page_source, 'html.parser')  # uses bs to get data from browser
-driver.quit()  # quits browser
 
-link = soup.find('a', href=re.compile(
-    'data-file-income-support-and-wage-subsidy-weekly-update-')).get('href')
+jobseeker_df.sort_values(by='Period', inplace=True)
 
-excel_path = ('https://www.msd.govt.nz/' + link)
+# Set the variables for CIRP data
+query_option = """$filter=(
+                        ResourceID eq 'CPINC5' and
+                        Label1 eq 'Total number of recipients of CIRP')
+                &$select=Period,Value"""
 
-cirp_df_21 = pd.read_excel(
-    excel_path,
-    sheet_name='1. Timeseries-MainBenefits-CIRP',
-    skiprows=59,
-    nrows=1
-).dropna(axis=1)  # dropna removes empty values
-cirp_df_21 = cirp_df_21.iloc[:, 1:].transpose().reset_index()
+# Call the service
+cirp_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
+)
 
-# Concat 2020 and 2021 CIRP dataframes
-cirp_df = pd.concat([cirp_df_20, cirp_df_21])
-cirp_df.reset_index(inplace=True, drop=True)
+cirp_df.sort_values(by='Period', inplace=True)
 
 # As MSD only released national data, Auckland was calculated as approximately 39.5% of
 # total up to 7th August and 43% from 14th August to 11th Sept and 49% from 18th Sept onwards
@@ -365,7 +354,7 @@ cirp_df.iloc[:, 1] = pd.concat(
     ]
 )
 
-# rename columns
+# Rename columns
 jobseeker_df.columns = ['Date', 'Jobseeker Support']
 cirp_df.columns = ['Date', 'COVID-19 Income Relief Payment']
 
@@ -732,20 +721,28 @@ filledjobs_df.rename(
     inplace=True
 )
 
-# Create dataframe for jobs online via stats nz covid portal data
-jobsonline_df = (
-    stats_df.loc[
-        (stats_df['indicator_name'] == 'Jobs online measure by region')
-        & (stats_df['parameter'] >= '2017-01-01'),
-        ['parameter', 'series_name', 'value']
-    ]
-).reset_index(drop=True)
-jobsonline_df['value'] = jobsonline_df['value'].astype(float)
+# Set the variables for the jobs online data
+endpoint = "Covid-19Indicators"
+query_option = """$filter=(
+                        ResourceID eq 'CPEMP5' and
+                        Period ge 2017-01-01)
+                &$select=Period,Geo,Value"""
+
+# Call the service
+jobsonline_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
+)
+
 jobsonline_df = pd.pivot_table(
     jobsonline_df,
-    values='value',
-    columns='series_name',
-    index='parameter'
+    values='Value',
+    columns='Geo',
+    index='Period'
 ).reset_index()
 
 # Rebase index to Jan 2017
@@ -762,7 +759,7 @@ for i in regions:
         jobsonline_df[i] / jobsonline_df.loc[0, i] * 100
     ).round(1)
 
-jobsonline_df.rename(columns={'parameter': 'Date'}, inplace=True)
+jobsonline_df.rename(columns={'Period': 'Date'}, inplace=True)
 regions.insert(0, 'Date')  # add date column to list
 
 jobsonline_df = jobsonline_df[regions]
@@ -788,6 +785,15 @@ format_gsheets(
     sheets=[0, 1]
 )
 
+format_gsheets(
+    client_secret,
+    workbook_name,
+    'B',
+    'F',
+    'NUMBER',
+    '#.0',
+    sheets=[1]
+)
 
 # %% ARRIVALS
 
