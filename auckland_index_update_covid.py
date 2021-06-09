@@ -42,7 +42,7 @@ header = {
 
 URL = 'https://statisticsnz.shinyapps.io/covid_19_dashboard/'
 options = Options()
-options.headless = True  # This setting stops a browser window from opening
+options.headless = False  # This setting stops a browser window from opening
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 driver.get(URL)
@@ -86,7 +86,7 @@ stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 # Create cases dataframe from ESR nz covid dashboard
 URL = 'https://nzcoviddashboard.esr.cri.nz/#!/source'
 options = Options()
-options.headless = True
+options.headless = False
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 
@@ -214,7 +214,7 @@ tests_df.rename(
 # Create cumulative vaccines dataframe from MOH datasheet
 URL = 'https://www.health.govt.nz/our-work/diseases-and-conditions/covid-19-novel-coronavirus/covid-19-data-and-statistics/covid-19-vaccine-data'
 options = Options()
-options.headless = True  # This setting stops a browser window from opening
+options.headless = False  # This setting stops a browser window from opening
 driver = webdriver.Chrome(
     executable_path=r'C:\windows\chromedriver', options=options
 )
@@ -324,6 +324,7 @@ jobseeker_df = odata.get_odata(
     proxies
 )
 
+# Sort by date order
 jobseeker_df.sort_values(by='Period', inplace=True)
 
 # Set the variables for CIRP data
@@ -507,7 +508,7 @@ format_gsheets(
 # AT excel file download name changes, so needs to be scraped
 URL = 'https://at.govt.nz/about-us/reports-publications/at-metro-patronage-report/'
 options = Options()
-options.headless = True  # This setting stops a browser window from opening
+options.headless = False  # This setting stops a browser window from opening
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 driver.get(URL)  # Opens URL on chrome to activate javascript
@@ -715,6 +716,9 @@ filledjobs_df = odata.get_odata(
     proxies
 )
 
+# Sort to date order
+filledjobs_df.sort_values(by='Period', inplace=True)
+
 filledjobs_df.rename(
     columns={'Period': 'Month',
              'Value': 'Auckland'},
@@ -737,6 +741,9 @@ jobsonline_df = odata.get_odata(
     api_key,
     proxies
 )
+
+# Sort to date order
+jobsonline_df.sort_values(by='Period', inplace=True)
 
 jobsonline_df = pd.pivot_table(
     jobsonline_df,
@@ -873,7 +880,7 @@ format_gsheets(
 # Download filled jobs csv file
 URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
 options = Options()
-options.headless = True  # This setting stops a browser window from opening
+options.headless = False  # This setting stops a browser window from opening
 driver = webdriver.Chrome(
     executable_path=r'C:\windows\chromedriver',
     options=options
@@ -970,7 +977,8 @@ data_folder = os.path.join(
 )  # Create's path for operating user
 prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
 options.add_experimental_option('prefs', prefs)
-options.add_argument("--headless")  # This setting stops a browser window from opening
+options.add_argument("start-maximized")
+# options.add_argument("--headless")  # This setting stops a browser window from opening
 driver = webdriver.Chrome(
     executable_path=r'C:\windows\chromedriver', options=options
 )
@@ -985,7 +993,7 @@ element = WebDriverWait(driver, 120).until(
 element.click()
 
 # Remove previously downloaded MBIE data files
-delete_file(data_folder, 'MBIE - COVID19 Response.csv')  # National data file
+delete_file(data_folder, 'MBIE - COVID19 Response.csv')
 
 # Download national data file
 element = WebDriverWait(driver, 30).until(
@@ -1024,6 +1032,9 @@ element = WebDriverWait(driver, 30).until(
     )
 )
 element.click()
+
+# Remove previously downloaded MBIE data files
+delete_file(data_folder, 'MBIE - COVID19 Response.csv')
 
 # Copy data from regional - xpath seems to change, program will iterate through xpaths
 try:
