@@ -35,6 +35,9 @@ header = {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
+proxies = {'http': os.environ['HTTP_PROXY2'],
+           'https': os.environ['HTTPS_PROXY2']}    
+    
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
@@ -224,8 +227,6 @@ driver.quit()  # quits browser
 
 link = soup.find('a', href=re.compile('covid_vaccinations_')).get('href')
 excel_path = ('https://www.health.govt.nz' + link)
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 r = requests.get(excel_path, headers=header, proxies=proxies, verify=False)  # Collects excel datasheet for use in read_excel
 
 vaccines_cum_df = pd.read_excel(
@@ -310,7 +311,7 @@ query_option = """$filter=(
                         ResourceID eq 'CPBEN7' and
                         Geo eq 'Auckland metro')
                 &$select=Period,Value"""
-api_key = os.environ['API_KEY']
+api_key = os.environ['STATS_KEY']
 proxies = {'http': os.environ['HTTP_PROXY2'],
            'https': os.environ['HTTPS_PROXY2']}
 
@@ -702,7 +703,7 @@ query_option = """$filter=(
                         ResourceID eq 'MEI4.1' and
                         Geo eq 'Auckland Region')
                 &$select=Period,Value"""
-api_key = os.environ['API_KEY']
+api_key = os.environ['STATS_KEY']
 proxies = {'http': os.environ['HTTP_PROXY2'],
            'https': os.environ['HTTPS_PROXY2']}
 
@@ -813,7 +814,7 @@ query_option = """$filter=(
                         Period ge 2019-01-01 and
                         Label1 eq 'Total')
                 &$select=Period,Value"""
-api_key = os.environ['API_KEY']
+api_key = os.environ['STATS_KEY']
 proxies = {'http': os.environ['HTTP_PROXY2'],
            'https': os.environ['HTTPS_PROXY2']}
 
