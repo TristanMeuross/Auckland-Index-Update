@@ -991,7 +991,7 @@ element = WebDriverWait(driver, 120).until(
         (By.XPATH, '//*[@id="shiny-modal"]/div/div/div[3]/button')
     )
 )
-element.click()
+driver.execute_script("arguments[0].click();", element)
 
 # Remove previously downloaded MBIE data files
 delete_file(data_folder, 'MBIE - COVID19 Response.csv')
