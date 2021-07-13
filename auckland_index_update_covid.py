@@ -153,13 +153,12 @@ local_df = pd.pivot_table(
     aggfunc='sum'
 ).reset_index()
 
-# NOTE under investigation has been removed from data as at 12//5
-# investigation_df = pd.pivot_table(
-#     cases_df,
-#     index='Date',
-#     values='Daily under investigation',
-#     aggfunc='sum'
-# ).reset_index()
+investigation_df = pd.pivot_table(
+    cases_df,
+    index='Date',
+    values='Daily under investigation',
+    aggfunc='sum'
+).reset_index()
 
 total_df = pd.pivot_table(
     cases_df,
@@ -171,7 +170,7 @@ total_df = pd.pivot_table(
 dataframes = [
     import_df,
     local_df,
-    # investigation_df,
+    investigation_df,
     total_df
 ]
 
@@ -186,12 +185,12 @@ daily_df = cases_df[
     ['Date',
      'Imported or import-related',
      'Locally acquired',
-     # 'Daily under investigation',
+      'Daily under investigation',
      'Daily total cases']
 ].copy()
 
 daily_df.rename(columns={
-    # 'Daily under investigation':'Under investigation',
+    'Daily under investigation':'Under investigation',
     'Daily total cases': 'Total cases'},
     inplace=True)
 cumulative_df = cases_df[['Date', 'Number of cases']].copy()
