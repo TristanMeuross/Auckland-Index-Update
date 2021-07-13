@@ -5,18 +5,17 @@ Created on Fri May  7 15:52:18 2021
 @author: meurost
 """
 
-import pygsheets
+from gspread_pandas import Spread
+import gspread
 import os
 
-def upload_gsheets(credentials, workbook_name, dataframes, sheets=[0], range_start=(1,1)):
+def upload_gsheets(workbook_name, dataframes, sheets=[0], range_start=(1,1)):
     """
-    Uploads chosen dataframes to selected workbook_name via pygsheets. Note 
+    Uploads chosen dataframes to selected workbook_name via gspread_pandas. Note 
     both dataframes and sheets variables need to be a list.
 
     Parameters
     ----------
-    credentials : TYPE
-        JSON credentials to authenticate upload.
     workbook_name : TYPE
         Name of Google Sheets file to upload to.
     dataframes : TYPE
@@ -31,50 +30,66 @@ def upload_gsheets(credentials, workbook_name, dataframes, sheets=[0], range_sta
     None.
 
     """
-    gc = pygsheets.authorize(service_file=credentials)
-    sh = gc.open(workbook_name)
+    sh = Spread(workbook_name)
     for i, x in zip(sheets, dataframes):
-        sh[i].set_dataframe(x,range_start)
-        
-def format_gsheets(credentials, workbook_name, range_start, range_end, 
-                   type_of_format, format_pattern, sheets=[0], model_cell='A1'):
+        sh.df_to_sheet(x, index=False, sheet=i, start=range_start)
+
+def download_gsheets(workbook_name, sheet=0, index=None):
     """
-    Formats chosen cells as described format.
+    Uploads chosen dataframes to selected workbook_name via gspread_pandas. Note 
+    both dataframes and sheets variables need to be a list.
 
     Parameters
     ----------
-    credentials : TYPE
-         JSON credentials to authenticate formatting.
     workbook_name : TYPE
-        Name of Google Sheets file to format.
-    range_start : TYPE
-        The start cell for the format range. Must be in string format and letter/number (i.e 'A' or 'A1', etc.)
-    range_end : TYPE
-        The end cell for the format range. Must be in string format and letter/number (i.e 'A' or 'A1', etc.).
-    type_of_format : TYPE
-        The type of format to be set in the range. Types include PERCENT, DATE, etc. Must be string.
-    format_pattern : TYPE
-        Pattern of format to be applied. Types include dd-mmm, 0%, etc. Must be string.
-    sheets : TYPE, optional
-        The worksheets to upload to (0 is the first). Must be a list. The default is [0].
-    model_cell : TYPE
-        The target cell which which the formatting will be based off. The default is 'A1'.
+        Name of Google Sheets file to upload to.
+    sheet : TYPE, optional
+        The worksheets to download (0 is the first). 
+    index : TYPE, optional
+        Column number of index, 0 or None for no index.
 
     Returns
     -------
     None.
 
     """
-    gc = pygsheets.authorize(service_file=credentials)
-    sh = gc.open(workbook_name)
-    mc = pygsheets.Cell(model_cell)
-    mc.set_number_format(
-        format_type = eval('pygsheets.FormatType.' + type_of_format),
-        pattern = format_pattern)
+    sh = Spread(workbook_name)
+    sh.open_sheet(sheet)
+    df = sh.sheet_to_df(index=index)
+    return df
+
+def format_gsheets(workbook_name, format_range, type_of_format, format_pattern, sheets=[0]):
+    """
+    Formats chosen cells as described format.
+
+    Parameters
+    ----------
+    workbook_name : TYPE
+        Name of Google Sheets file to format.
+    format_range : TYPE
+        The range of cells to be formatted. Must be in string format and letter/number (i.e 'A' or 'A1', etc.)
+    type_of_format : TYPE
+        The type of format to be set in the range. Types include PERCENT, DATE, etc. Must be string.
+    format_pattern : TYPE
+        Pattern of format to be applied. Types include dd-mmm, 0%, etc. Must be string.
+    sheets : TYPE, optional
+        The worksheets to upload to (0 is the first). Must be a list. The default is [0].
+
+    Returns
+    -------
+    None.
+
+    """
+    gc = gspread.service_account()
+    sh = gc.open(workbook_name) 
     for i in sheets:
-        pygsheets.DataRange(
-            start=range_start, end=range_end, worksheet = sh[i]
-          ).apply_format(mc)
+        worksheet = sh.get_worksheet(i)
+        worksheet.format(format_range, {
+            'numberFormat': {
+                'type': type_of_format,
+                'pattern': format_pattern
+            }
+        })
 
 def delete_file(folder_path, filename):
     """    
