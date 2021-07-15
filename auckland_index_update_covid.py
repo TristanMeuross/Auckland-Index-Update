@@ -8,7 +8,6 @@ Created on Tue Aug  4 13:19:28 2020
 # %% Import modules, Google Sheets authorisation and functions
 
 import pandas as pd
-import pygsheets
 from bs4 import BeautifulSoup as bs
 import re
 from selenium import webdriver
@@ -23,11 +22,7 @@ import os
 import requests
 
 from Python import stats_odata as odata
-from modules.my_modules import upload_gsheets, format_gsheets, delete_file
-
-# Authorizes uploads to Google Sheets
-client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
-gc = pygsheets.authorize(service_file=client_secret)
+from modules.my_modules import upload_gsheets, download_gsheets, format_gsheets, delete_file
 
 # header used for requests module authorisation
 header = {
@@ -35,9 +30,9 @@ header = {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}    
-    
+proxies = {'http': os.environ['HTTP_PROXY'],
+            'https': os.environ['HTTPS_PROXY']}    
+
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
@@ -156,13 +151,12 @@ local_df = pd.pivot_table(
     aggfunc='sum'
 ).reset_index()
 
-# NOTE under investigation has been removed from data as at 12//5
-# investigation_df = pd.pivot_table(
-#     cases_df,
-#     index='Date',
-#     values='Daily under investigation',
-#     aggfunc='sum'
-# ).reset_index()
+investigation_df = pd.pivot_table(
+    cases_df,
+    index='Date',
+    values='Daily under investigation',
+    aggfunc='sum'
+).reset_index()
 
 total_df = pd.pivot_table(
     cases_df,
@@ -174,7 +168,7 @@ total_df = pd.pivot_table(
 dataframes = [
     import_df,
     local_df,
-    # investigation_df,
+    investigation_df,
     total_df
 ]
 
@@ -189,12 +183,12 @@ daily_df = cases_df[
     ['Date',
      'Imported or import-related',
      'Locally acquired',
-     # 'Daily under investigation',
+      'Daily under investigation',
      'Daily total cases']
 ].copy()
 
 daily_df.rename(columns={
-    # 'Daily under investigation':'Under investigation',
+    'Daily under investigation':'Under investigation',
     'Daily total cases': 'Total cases'},
     inplace=True)
 cumulative_df = cases_df[['Date', 'Number of cases']].copy()
@@ -227,12 +221,16 @@ driver.quit()  # quits browser
 
 link = soup.find('a', href=re.compile('covid_vaccinations_')).get('href')
 excel_path = ('https://www.health.govt.nz' + link)
-r = requests.get(excel_path, headers=header, proxies=proxies, verify=False)  # Collects excel datasheet for use in read_excel
+r = requests.get(
+    excel_path,
+    headers=header,
+    verify=False
+)  # Collects excel datasheet for use in read_excel
 
 vaccines_cum_df = pd.read_excel(
     r.content,
     sheet_name='Cumulative',
-    usecols='A,B,D'
+    usecols='A,B,C'
 ).dropna(thresh=2)
 
 # Create share of population vaccinated dataframe from ourworldindata.org
@@ -261,10 +259,10 @@ cases_dataframes = [
     vaccines_cum_df,
     vacc_share_df
 ]
+
 workbook_name = '1. Auckland-index-covid-dashboard-covid-cases'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     cases_dataframes,
     sheets=[0, 1, 2, 3, 4]
@@ -272,9 +270,7 @@ upload_gsheets(
 
 # Format cells
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm-yy',
@@ -282,20 +278,16 @@ format_gsheets(
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'E',
+    'B:E',
     'NUMBER',
     '0',
     sheets=[0, 1, 2, 3]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'E',
+    'B:E',
     'NUMBER',
     '0.00',
     sheets=[4]
@@ -312,8 +304,6 @@ query_option = """$filter=(
                         Geo eq 'Auckland metro')
                 &$select=Period,Value"""
 api_key = os.environ['STATS_KEY']
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 
 # Call the service
 jobseeker_df = odata.get_odata(
@@ -378,16 +368,13 @@ auckland_df['COVID-19 Income Relief Payment'] = auckland_df[
 workbook_name = '2. Auckland-index-covid-dashboard-unemployment-benefits-and-payments'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     [auckland_df]
 )
 
 # Format Google Sheet cells
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm-yy'
@@ -479,25 +466,20 @@ auckland_df = auckland_df.loc[
 workbook_name = '4. Auckland-index-covid-dashboard-mobility'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     [auckland_df]
 )
 
 # Format cells
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'G',
+    'B:G',
     'PERCENT',
     '0%'
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm-yy'
@@ -543,40 +525,32 @@ pt_df_21.rename(columns={'Rolling': '2021'}, inplace=True)
 # Creates dataframe with NaN values
 nan_df_21 = pd.DataFrame(
     [[np.nan] * len(pt_df_21.columns)],
-    index=[0, 1, 2],
+    index=[58.5],
     columns=pt_df_21.columns
 )
 
 # Adds empty rows to line weekdays up for 2019-20 year's with 2021
-pt_df_21 = nan_df_21.append(pt_df_21, ignore_index=True)
+pt_df_21 = nan_df_21.append(pt_df_21).sort_index().reset_index(drop=True)
 
-# Download data already in Google Sheet (starts Jan 2019)
+# Download patronage data data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
-sh = gc.open(workbook_name)
-
-# select the third sheet
-wks = sh[2]
-
-# update date format for python
-model_cell = pygsheets.Cell("A2")
-
-model_cell.set_number_format(
-    format_type=pygsheets.FormatType.DATE,
-    pattern="yyyy-mm-dd"
+format_gsheets(
+    workbook_name,
+    'A',
+    'DATE',
+    'yyyy-mm-dd',
+    sheets=[2]
+)
+download_df = download_gsheets(
+    workbook_name,
+    sheet=2
 )
 
-pygsheets.DataRange(
-    start='A', end='A', worksheet=wks
-).apply_format(model_cell)
-
-# download google sheet into dataframe
-download_df = wks.get_as_df()
 download_df['Date'] = pd.to_datetime(download_df['Date'], format='%Y-%m-%d')
 download_df.columns = download_df.columns.astype(str)  # Convert column headers to string
 download_df.drop(columns=['2021'], inplace=True)
-download_df['2020'] = download_df['2020'].str.replace(',', '').astype(np.float32)
-download_df['2019'] = download_df['2019'].str.replace(',', '').astype(np.float32)
-download_df = download_df.iloc[:, :3]
+download_df['2020'] = pd.to_numeric(download_df['2020'].str.replace(',', ''), errors='coerce')
+download_df['2019'] = pd.to_numeric(download_df['2019'].str.replace(',', ''), errors='coerce')
 
 # Join dataframes, adds the 2021 column to
 pt_df = download_df.join(pt_df_21['2021'])
@@ -678,16 +652,15 @@ workbook_name = '6. Auckland-index-covid-dashboard-transport'
 
 transport_dataframes = [light_df, heavy_df, pt_df]
 
-upload_gsheets(client_secret,
-               workbook_name,
-               transport_dataframes,
-               sheets=[0, 1, 2])
+upload_gsheets(
+    workbook_name,
+    transport_dataframes,
+    sheets=[0, 1, 2]
+)
 
 # Format cells
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm',
@@ -704,8 +677,6 @@ query_option = """$filter=(
                         Geo eq 'Auckland Region')
                 &$select=Period,Value"""
 api_key = os.environ['STATS_KEY']
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 
 # Call the service
 filledjobs_df = odata.get_odata(
@@ -777,16 +748,13 @@ workbook_name = '7. Auckland-index-covid-dashboard-jobs'
 jobs_dataframes = [filledjobs_df, jobsonline_df]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     jobs_dataframes,
     sheets=[0, 1]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'mmm yyyy',
@@ -794,10 +762,8 @@ format_gsheets(
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'F',
+    'B:F',
     'NUMBER',
     '#.0',
     sheets=[1]
@@ -815,8 +781,6 @@ query_option = """$filter=(
                         Label1 eq 'Total')
                 &$select=Period,Value"""
 api_key = os.environ['STATS_KEY']
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 
 # call the service
 arrivals_df = odata.get_odata(
@@ -862,15 +826,12 @@ arrivals_df = arrivals_19_df.join([arrivals_20_df['2020'], arrivals_21_df['2021'
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     [arrivals_df]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm'
@@ -946,25 +907,20 @@ trade_df.rename(
 workbook_name = '9. Auckland-index-covid-dashboard-trade'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     [trade_df]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm-yy'
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'H',
+    'B:H',
     'PERCENT',
     '0.0%'
 )
@@ -1078,24 +1034,19 @@ driver.quit()  # Quit driver
 workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     [card_df]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'D',
+    'B:D',
     'PERCENT',
     '0.0%'
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'dd-mmm-yy'

@@ -7,10 +7,12 @@ Created on Wed Dec  9 16:01:07 2020
 
 # %% Import modules, Google Sheets authorisation and functions
 import pandas as pd
-import pygsheets
 from bs4 import BeautifulSoup as bs
 import re
 from selenium import webdriver
+# from selenium.webdriver.support.ui import WebDriverWait
+# from selenium.webdriver.support import expected_conditions as EC
+# from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import zipfile
 import urllib.request
@@ -24,16 +26,16 @@ from modules.my_modules import upload_gsheets, format_gsheets
 rimu_file = 'data_files/Economic Update Key Charts.xlsx'
 economic_file = r'U:\CityWide\Permanent\Research Information\Economic indicators\Economic Indicators Database - Economic.xlsm'
 
-# Authorizes uploads to Google Sheets
-client_secret = r'C:\Users\meurost\Documents\Python Projects\Auckland Index\client_secret.json'
-gc = pygsheets.authorize(service_file=client_secret)
-
 # header used for requests module authorisation
 header = {
 'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
+# Proxies for stats nz api
+proxies = {'http':os.environ['HTTP_PROXY'],
+           'https':os.environ['HTTPS_PROXY']}
+    
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
@@ -96,28 +98,24 @@ confidence_df.columns = [
 confidence_df = confidence_df.loc[confidence_df['Period']>='2000-01-01']
 confidence_df['Period'] = confidence_df['Period'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
 
-
 # Upload to G Sheets
-workbook_name = '2-Auckland-index-quarterly-snapshot-confidence-indices-2019-q3'
+# Note gspread_pandas was not accepting full sheet name (was throwing an error),
+# so sheet ID has been used instead
+workbook_name = '1OAolOtOahSo-xmTqOcpAqy3gNSjXBA6d3dxa9WbZkLk'
 upload_gsheets(
-    client_secret,
     workbook_name,
     [confidence_df]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
     'B',
     'NUMBER',
     '0.0'
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'C',
     'C',
     'PERCENT',
     '0.0%'
@@ -136,19 +134,16 @@ retail_df = retail_df.loc[retail_df['Period']>='2008-01-01']
 retail_df['Period'] = retail_df['Period'].dt.to_period('Q').dt.strftime('%Y Q%q')
 
 #Upload to G Sheets
-workbook_name = '3-Auckland-index-quarterly-snapshot-retail-sales-growth-rate-2019-q3'
+workbook_name = '1y5AXwdRX_IPDVSP9xjpFyv80G61WC2xqPI7pxCxcpks'
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     [retail_df]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'PERCENT',
     '0.0%'
 )
@@ -241,7 +236,7 @@ emp_rates_df = emp_rates_df[[
 ]]
 
 # Upload to G Sheets
-workbook_name = '5-Auckland-index-quarterly-snapshot-employment-rates'
+workbook_name = '1a3KZbjkS-_KkbL7KsShlNrm4MJpKMPPIeGS4omewPos'
 
 lfs_dataframes = [
     emp_levels_df,
@@ -250,27 +245,22 @@ lfs_dataframes = [
 ]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     lfs_dataframes,
     sheets=[0,1,2]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'NUMBER',
     '#,##0',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'D',
+    'B:D',
     'PERCENT',
     '0.0%',
     sheets=[1,2]
@@ -318,34 +308,29 @@ earnings_df = earnings_df[[
 ]]
 
 # Upload to G Sheets
-workbook_name = '6-Auckland-index-quarterly-snapshot-earnings'
+workbook_name = '1zRP5jgoP5KWCImZg9mKoTdK5u0FQvbCVwptUvE_UHl4'
 earnings_dataframes = [
     wages_df,
     earnings_df
 ]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     earnings_dataframes,
     sheets=[0,1]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'CURRENCY',
     '$#,##0.00',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'PERCENT',
     '0.0%',
     sheets=[1]
@@ -421,39 +406,34 @@ consents_growth_df = consents_df.loc[
 ]
 
 # Upload to G Sheets
-workbook_name = '8-Auckland-index-quarterly-snapshot-construction'
+workbook_name = '1wtNht14rRWIoHCNAPBb4_lZvMP5J_iVx3tr4YNa5LmQ'
 consents_dataframes = [
     consents_num_df,
     consents_growth_df
 ]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     consents_dataframes,
     sheets=[0,1]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'NUMBER',
     '#,##0',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'PERCENT',
     '0.0%',
     sheets=[1]
 )
-
+#%%
 # -----TRANSPORT-----
 #AT excel file download name changes, so needs to be scraped
 URL = 'https://at.govt.nz/about-us/reports-publications/at-metro-patronage-report/'
@@ -519,7 +499,7 @@ pat_growth_df.rename(
 )
 
 # Upload to G Sheets
-workbook_name = '9-Auckland-index-quarterly-snapshot-transport'
+workbook_name = '122UI9Dqx15B23V7ALDxFhAFXid4T848TelXl-CXzTPU'
 
 patronage_dataframes = [
     pat_num_df,
@@ -527,27 +507,22 @@ patronage_dataframes = [
 ]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     patronage_dataframes,
     sheets=[0,1]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'D',
+    'B:D',
     'NUMBER',
     '#,##0',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'D',
+    'B:D',
     'PERCENT',
     '0.0%',
     sheets=[1]
@@ -617,26 +592,21 @@ labourforce_dataframes = [
 ]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     labourforce_dataframes,
     sheets=[0,1,2]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'D',
+    'B:D',
     'NUMBER',
     '#,##0',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
     'B',
     'PERCENT',
     '0.0%',
@@ -644,15 +614,13 @@ format_gsheets(
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'C',
     'C',
     'NUMBER',
     '#,##0',
     sheets=[2]
 )
-#%%
+
 #-----EMPLOYMENT AND UNEMPLOYMENT-----
 # Create unemployment datafram from RIMU monthly datasheet
 unemp_rate_df = (
@@ -760,7 +728,7 @@ emp_growth_df.rename(
 )
 
 # Upload to G Sheets
-workbook_name = '3-Auckland-index-people-employment-and-unemployment-auckland-vs-nz'
+workbook_name = '1vLqh4tIbh70tKNOurJyGFaI3Vt_27V1PCvQ-n8GYg-c'
 employment_dataframes = [
     unemp_rate_df,
     neet_df,
@@ -769,27 +737,22 @@ employment_dataframes = [
 ]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     employment_dataframes,
     sheets=[0,1,2,3]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'C',
+    'B:C',
     'PERCENT',
     '0.0%',
     sheets=[0,1,2]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'E',
+    'B:E',
     'NUMBER',
     '#,##0',
     sheets=[3]
@@ -802,8 +765,6 @@ service = "https://api.stats.govt.nz/opendata/v1/"
 endpoint = "OverseasCargo"
 entity = "Observations"
 api_key = os.environ['STATS_KEY']
-proxies = {'http':os.environ['HTTP_PROXY2'],
-           'https':os.environ['HTTPS_PROXY2']}
 
 # Exports
 query_option = """$filter=(
@@ -875,35 +836,30 @@ export_df = (export_df.iloc[4:,:]).reset_index() # Remove date from index for up
 
 
 # Upload to G Sheets
-workbook_name = '10-Auckland-index-business-and-economy-exports-2019-q3'
+workbook_name = '1mjdmQvubkMaVtzRYrIvhlXoYCz74hd_bqIjjN5jIAjg'
 dataframes = [export_df, export_growth_df]
 upload_gsheets(
-    client_secret,
     workbook_name,
     dataframes,
     sheets=[0,1]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'F',
+    'B:F',
     'NUMBER',
     '$#,###',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'F',
+    'B:F',
     'PERCENT',
     '#0.0%',
     sheets=[1]
 )
-
+#%%
 # Imports
 query_option = """$filter=(
                         ResourceID eq 'OSC1.1' and
@@ -973,30 +929,25 @@ import_growth_df.reset_index(inplace=True) # Remove date from index for upload t
 import_df = (import_df.iloc[4:,:]).reset_index() # Remove date from index for upload to G sheets
 
 # Upload to G Sheets
-workbook_name = '11-Auckland-index-business-and-economy-imports-2019-q3'
+workbook_name = '1LOldkkOq4C9XVcPhdX8CKVPtZHctCbOD3A2s2PjJQhQ'
 dataframes = [import_df, import_growth_df]
 upload_gsheets(
-    client_secret,
     workbook_name,
     dataframes,
     sheets=[0,1]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'F',
+    'B:F',
     'NUMBER',
     '$#,###',
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
-    'F',
+    'B:F',
     'PERCENT',
     '#0.0%',
     sheets=[1]
@@ -1023,18 +974,19 @@ inflation_df['Quarter'] = inflation_df['Quarter'].dt.to_period('Q').dt.strftime(
 
 # Upload to G Sheets
 workbook_name = '1-Auckland-index-markets-inflation-CPI'
-upload_gsheets(client_secret,
-                workbook_name,
-                [inflation_df],
-                sheets=[0])
+upload_gsheets(
+    workbook_name,
+    [inflation_df],
+    sheets=[0]
+)
 
-format_gsheets(client_secret,
-                workbook_name,
-                'B',
-                'B',
-                'NUMBER',
-                '0.0',
-                sheets=[0])
+format_gsheets(
+    workbook_name,
+    'B',
+    'NUMBER',
+    '0.0',
+    sheets=[0]
+)
 
 # -----INTEREST RATES-----
 # Create inflation dataframe from RIMU Economic Indicators Database
@@ -1055,18 +1007,15 @@ interest_df['Official Cash Rate (OCR)'] = interest_df['Official Cash Rate (OCR)'
 interest_df['Quarter'] = interest_df['Quarter'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
 
 # Upload to G Sheets
-workbook_name = '2-Auckland-index-markets-monthly-cash-interest-rate'
+workbook_name = '1HYDvqGzJVI89ozonrWQZk0o2cCL6ZjFhjXSouC52evM'
 upload_gsheets(
-    client_secret,
     workbook_name,
     [interest_df],
     sheets=[0]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
     'B',
     'NUMBER',
     '0.00',
@@ -1074,10 +1023,6 @@ format_gsheets(
 )
 
 # -----EXCHANGE RATES-----
-# Quandl proxy authentication needs to be ASCII encoded and drawn from env variables
-os.environ['HTTP_PROXY'] = os.environ['HTTP_PROXY2']
-os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
-
 api_key = os.environ['QUANDL_KEY']
 
 # Call quandl api to get currencies exchange data (to USD)
@@ -1124,25 +1069,18 @@ cny_df = (usd_df * cny_df).reset_index() # Note exchange data from quandl is rev
 jpy_df = (usd_df * jpy_df).reset_index() # Note exchange data from quandl is reversed
 usd_df = usd_df.reset_index()
 
-# Google proxy authentication cannot be ASCII encoded and is drawn from env variables
-os.environ['HTTP_PROXY'] = os.environ['HTTP_PROXY3']
-os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY3']
-
 # Upload to G Sheets
-workbook_name = '3-Auckland-index-markets-RBNZ-exchange-rates'
+workbook_name = '1MNVhaCFelJVwnc5_4fpJOGYulWBeEBMDwFNJ8N1CqNY'
 forex_dataframes = [aud_df, eur_df, gbp_df, usd_df, cny_df, jpy_df]
 
 upload_gsheets(
-    client_secret,
     workbook_name,
     forex_dataframes,
     sheets=[0,1,2,3,4,5]
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
     'B',
     'NUMBER',
     '0.0000',
@@ -1150,9 +1088,7 @@ format_gsheets(
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'B',
     'B',
     'NUMBER',
     '0.00',
@@ -1160,9 +1096,7 @@ format_gsheets(
 )
 
 format_gsheets(
-    client_secret,
     workbook_name,
-    'A',
     'A',
     'DATE',
     'Mmm yyyy',
@@ -1184,58 +1118,79 @@ nzx50_df = nzx50_df[1:-1] # Removes first and last months, which are incomplete
 
 #Upload to Google Sheets
 workbook_name = '5-Auckland-index-markets-NZX50'
-upload_gsheets(client_secret,
-                workbook_name,
-                [nzx50_df])
+upload_gsheets(
+    workbook_name,
+    [nzx50_df]
+)
 
 #Format Google Sheet cells
-format_gsheets(client_secret,
-                workbook_name,
-                'A',
-                'A',
-                'DATE',
-                'yyyy mmm')
+format_gsheets(
+    workbook_name,
+    'A',
+    'DATE',
+    'yyyy mmm'
+)
 
-format_gsheets(client_secret,
-                workbook_name,
-                'B',
-                'B',
-                'CURRENCY',
-                '$#,##0.00')
+format_gsheets(
+    workbook_name,
+    'B',
+    'CURRENCY',
+    '$#,##0.00'
+)
 
-
-#%%
+#%% Currently getting blocked by RBNZ website
 
 # # -----GOVERNMENT BONDS-----
 # # Create bond yield dataframe from rbnz excel sheet
-# excel_file = 'https://www.rbnz.govt.nz/-/media/ReserveBank/Files/Statistics/tables/b2/hb2-monthly.xlsx'
+# URL = 'https://www.rbnz.govt.nz/statistics/b2'
+# options = Options()
+# data_folder = os.path.join(
+#     os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files'
+# )  # Create's path for operating user
+# prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
+# options.add_experimental_option('prefs', prefs)
+# options.headless = False #This setting stops a browser window from opening
+# driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+#                           options=options)
+# driver.get(URL) #opens URL on chrome to activate javascript
+# element = WebDriverWait(driver, 30).until(
+#     EC.presence_of_element_located(
+#         (By.XPATH, '//*[@id="RbnzContent"]/div[3]/div[5]/div[2]/a[5]')
+#     )
+# )
+# element.click()
+# #%%
 # headers = ['Month',
-#            '10-year government bond yield (monthly)']
-# interest_df = pd.read_excel(excel_file,
-#                             # engine='openpyxl', # needed for newer versions of pandas to support xlsx files
-#                             skiprows=5,
-#                             header=None,
-#                             usecols='A,J',
-#                             names=headers)
-# interest_df['Quarter'] = interest_df['Month'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
-# interest_df['10-year government bond yield'] = interest_df['10-year government bond yield (monthly)'].rolling(3).mean()
-# interest_df = interest_df[['Quarter',
-#                            '10-year government bond yield']].loc[interest_df['Month']>='2008-03-01']
-# interest_df = interest_df.iloc[::3] #Data comes as monthly, need to extract end of quarter month
-
+#             '10-year government bond yield (monthly)']
+# bond_df = pd.read_excel(
+#     xlsx_file,
+#     skiprows=5,
+#     header=None,
+#     usecols='A,J',
+#     names=headers
+# )
+# driver.quit()
+# bond_df['Quarter'] = bond_df['Month'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
+# bond_df['10-year government bond yield'] = bond_df['10-year government bond yield (monthly)'].rolling(3).mean()
+# bond_df = bond_df[['Quarter',
+#                             '10-year government bond yield']].loc[bond_df['Month']>='2008-03-01']
+# bond_df = bond_df.iloc[::3] #Data comes as monthly, need to extract end of quarter month
+# print(bond_df)
+# #%%
 # # Upload to G Sheets
 # workbook_name = '4-Auckland-index-markets-10y-govt-bond-yield'
-# upload_gsheets(client_secret,
-#                 workbook_name,
-#                 [interest_df],
-#                 sheets=[0])
+# upload_gsheets(
+#     workbook_name,
+#     [bond_df],
+#     sheets=[0]
+# )
 
-# format_gsheets(client_secret,
-#                workbook_name,
-#                'B',
-#                'B',
-#                'NUMBER',
-#                '0.00',
-#                sheets=[0])
+# format_gsheets(
+#     workbook_name,
+#     'B',
+#     'NUMBER',
+#     '0.00',
+#     sheets=[0]
+# )
 
 
