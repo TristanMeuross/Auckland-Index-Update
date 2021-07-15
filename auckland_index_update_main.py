@@ -32,6 +32,10 @@ header = {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
+# Proxies for stats nz api
+proxies = {'http':os.environ['HTTP_PROXY'],
+           'https':os.environ['HTTPS_PROXY']}
+    
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
@@ -761,8 +765,6 @@ service = "https://api.stats.govt.nz/opendata/v1/"
 endpoint = "OverseasCargo"
 entity = "Observations"
 api_key = os.environ['STATS_KEY']
-proxies = {'http':os.environ['HTTP_PROXY2'],
-           'https':os.environ['HTTPS_PROXY2']}
 
 # Exports
 query_option = """$filter=(
@@ -1021,10 +1023,6 @@ format_gsheets(
 )
 
 # -----EXCHANGE RATES-----
-# Quandl proxy authentication needs to be ASCII encoded and drawn from env variables
-os.environ['HTTP_PROXY'] = os.environ['HTTP_PROXY2']
-os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
-
 api_key = os.environ['QUANDL_KEY']
 
 # Call quandl api to get currencies exchange data (to USD)

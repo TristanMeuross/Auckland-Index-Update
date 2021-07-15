@@ -30,10 +30,8 @@ header = {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}    
-
-os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
+proxies = {'http': os.environ['HTTP_PROXY'],
+            'https': os.environ['HTTPS_PROXY']}    
 
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
@@ -223,7 +221,11 @@ driver.quit()  # quits browser
 
 link = soup.find('a', href=re.compile('covid_vaccinations_')).get('href')
 excel_path = ('https://www.health.govt.nz' + link)
-r = requests.get(excel_path, headers=header, proxies=proxies, verify=False)  # Collects excel datasheet for use in read_excel
+r = requests.get(
+    excel_path,
+    headers=header,
+    verify=False
+)  # Collects excel datasheet for use in read_excel
 
 vaccines_cum_df = pd.read_excel(
     r.content,
@@ -302,8 +304,6 @@ query_option = """$filter=(
                         Geo eq 'Auckland metro')
                 &$select=Period,Value"""
 api_key = os.environ['STATS_KEY']
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 
 # Call the service
 jobseeker_df = odata.get_odata(
@@ -677,8 +677,6 @@ query_option = """$filter=(
                         Geo eq 'Auckland Region')
                 &$select=Period,Value"""
 api_key = os.environ['STATS_KEY']
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 
 # Call the service
 filledjobs_df = odata.get_odata(
@@ -783,8 +781,6 @@ query_option = """$filter=(
                         Label1 eq 'Total')
                 &$select=Period,Value"""
 api_key = os.environ['STATS_KEY']
-proxies = {'http': os.environ['HTTP_PROXY2'],
-           'https': os.environ['HTTPS_PROXY2']}
 
 # call the service
 arrivals_df = odata.get_odata(
