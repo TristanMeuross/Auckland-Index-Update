@@ -65,7 +65,7 @@ def format_gsheets(workbook_name, format_range, type_of_format, format_pattern, 
     Parameters
     ----------
     workbook_name : TYPE
-        Name of Google Sheets file to format.
+        Name or ID of Google Sheets file to format.
     format_range : TYPE
         The range of cells to be formatted. Must be in string format and letter/number (i.e 'A' or 'A1', etc.)
     type_of_format : TYPE
@@ -81,15 +81,26 @@ def format_gsheets(workbook_name, format_range, type_of_format, format_pattern, 
 
     """
     gc = gspread.service_account()
-    sh = gc.open(workbook_name) 
-    for i in sheets:
-        worksheet = sh.get_worksheet(i)
-        worksheet.format(format_range, {
-            'numberFormat': {
-                'type': type_of_format,
-                'pattern': format_pattern
-            }
-        })
+    try:
+        sh = gc.open(workbook_name)
+        for i in sheets:
+            worksheet = sh.get_worksheet(i)
+            worksheet.format(format_range, {
+                'numberFormat': {
+                    'type': type_of_format,
+                    'pattern': format_pattern
+                }
+            })
+    except gspread.client.SpreadsheetNotFound:
+        sh = gc.open_by_key(workbook_name)
+        for i in sheets:
+            worksheet = sh.get_worksheet(i)
+            worksheet.format(format_range, {
+                'numberFormat': {
+                    'type': type_of_format,
+                    'pattern': format_pattern
+                }
+            })
 
 def delete_file(folder_path, filename):
     """    
