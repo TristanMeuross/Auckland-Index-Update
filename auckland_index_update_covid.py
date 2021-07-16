@@ -30,8 +30,11 @@ header = {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
-proxies = {'http': os.environ['HTTP_PROXY'],
-            'https': os.environ['HTTPS_PROXY']}    
+# Setting proxies for gspread, requests and APIs
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
+
+os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']   
 
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com

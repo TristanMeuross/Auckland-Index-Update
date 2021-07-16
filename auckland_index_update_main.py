@@ -18,6 +18,7 @@ import zipfile
 import urllib.request
 import os
 import quandl
+import time
 
 from Python import stats_odata as odata
 from modules.my_modules import upload_gsheets, format_gsheets
@@ -32,9 +33,11 @@ header = {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
 }
 
-# Proxies for stats nz api
-proxies = {'http':os.environ['HTTP_PROXY'],
-           'https':os.environ['HTTPS_PROXY']}
+# Setting proxies for gspread, requests and APIs
+proxies = {'http':os.environ['HTTP_PROXY2'],
+           'https':os.environ['HTTPS_PROXY2']}
+
+os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
     
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
@@ -121,6 +124,8 @@ format_gsheets(
     '0.0%'
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # -----RETAIL SALES-----
 # Create dataframe from RIMU monthly file
 retail_df = pd.read_excel(
@@ -147,6 +152,8 @@ format_gsheets(
     'PERCENT',
     '0.0%'
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
 
 # -----EMPLOYMENT RATES-----
 lfs_df = hlfs_df.loc[
@@ -266,6 +273,8 @@ format_gsheets(
     sheets=[1,2]
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # -----EARNINGS-----
 # Create earnings dataframe from RIMU Economic Indicators Database
 wages_df = pd.read_excel(
@@ -335,6 +344,8 @@ format_gsheets(
     '0.0%',
     sheets=[1]
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
 
 # -----CONSTRUCTION-----
 # Download filled jobs csv file
@@ -433,6 +444,9 @@ format_gsheets(
     '0.0%',
     sheets=[1]
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 #%%
 # -----TRANSPORT-----
 #AT excel file download name changes, so needs to be scraped
@@ -528,6 +542,8 @@ format_gsheets(
     sheets=[1]
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # %% 2. PEOPLE
 
 # -----LABOUR FORCE-----
@@ -620,6 +636,8 @@ format_gsheets(
     '#,##0',
     sheets=[2]
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
 
 #-----EMPLOYMENT AND UNEMPLOYMENT-----
 # Create unemployment datafram from RIMU monthly datasheet
@@ -758,6 +776,8 @@ format_gsheets(
     sheets=[3]
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # %% BUSINESS AND ECONOMY
 
 #-----EXPORTS AND IMPORTS-----
@@ -859,6 +879,9 @@ format_gsheets(
     '#0.0%',
     sheets=[1]
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 #%%
 # Imports
 query_option = """$filter=(
@@ -953,6 +976,8 @@ format_gsheets(
     sheets=[1]
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # %% 5. MARKETS
 
 # -----INFLATION-----
@@ -988,6 +1013,8 @@ format_gsheets(
     sheets=[0]
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # -----INTEREST RATES-----
 # Create inflation dataframe from RIMU Economic Indicators Database
 interest_df = pd.read_excel(
@@ -1021,6 +1048,8 @@ format_gsheets(
     '0.00',
     sheets=[0]
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
 
 # -----EXCHANGE RATES-----
 api_key = os.environ['QUANDL_KEY']
@@ -1103,6 +1132,8 @@ format_gsheets(
     sheets=[0,1,2,3,4,5]
 )
 
+time.sleep(10) # Slow down google API requests to not exceed limit
+
 # -----NZ STOCK EXCHANGE-----
 #Create NZX50 dataframe from S&P excel sheet (10 year period only)
 excel_file = 'https://www.spglobal.com/spdji/en/idsexport/file.xls?hostIdentifier=48190c8c-42c4-46af-8d1a-0cd5db894797&redesignExport=true&languageId=1&selectedModule=PerformanceGraphView&selectedSubModule=Graph&yearFlag=tenYearFlag&indexId=92029429'
@@ -1137,6 +1168,8 @@ format_gsheets(
     'CURRENCY',
     '$#,##0.00'
 )
+
+time.sleep(10) # Slow down google API requests to not exceed limit
 
 #%% Currently getting blocked by RBNZ website
 
