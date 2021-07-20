@@ -25,7 +25,7 @@ from modules.my_modules import upload_gsheets, format_gsheets
 
 # Location of RIMU Datasheet
 rimu_file = 'data_files/Economic Update Key Charts.xlsx'
-economic_file = r'U:\CityWide\Permanent\Research Information\Economic indicators\Economic Indicators Database - Economic.xlsm'
+economic_file = r'\\10.183.1.100\Shared\CityWide\Permanent\Research Information\Economic indicators\Economic Indicators Database - Economic.xlsm'
 
 # header used for requests module authorisation
 header = {
