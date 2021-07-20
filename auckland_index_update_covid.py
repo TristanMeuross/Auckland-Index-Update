@@ -22,7 +22,7 @@ import os
 import requests
 
 from Python import stats_odata as odata
-from modules.my_modules import upload_gsheets, download_gsheets, format_gsheets, delete_file
+from modules.my_modules import upload_gsheets, download_gsheets, format_gsheets, clear_gsheets, delete_file
 
 # header used for requests module authorisation
 header = {
@@ -293,6 +293,11 @@ cases_dataframes = [
 ]
 
 workbook_name = '1. Auckland-index-covid-dashboard-covid-cases'
+
+clear_gsheets(
+    workbook_name,
+    sheets=[0]
+)
 
 upload_gsheets(
     workbook_name,

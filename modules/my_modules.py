@@ -91,6 +91,7 @@ def format_gsheets(workbook_name, format_range, type_of_format, format_pattern, 
                     'pattern': format_pattern
                 }
             })
+    # If using workbook ID instead of name, function will try to open_by_key
     except gspread.client.SpreadsheetNotFound:
         sh = gc.open_by_key(workbook_name)
         for i in sheets:
@@ -101,6 +102,14 @@ def format_gsheets(workbook_name, format_range, type_of_format, format_pattern, 
                     'pattern': format_pattern
                 }
             })
+
+def clear_gsheets(workbook_name, sheets=[0]):
+    gc = gspread.service_account()
+    sh = gc.open(workbook_name)
+    for i in sheets:
+        worksheet = sh.get_worksheet(i)
+        worksheet.clear()
+    
 
 def delete_file(folder_path, filename):
     """    
