@@ -154,12 +154,19 @@ local_df = pd.pivot_table(
     aggfunc='sum'
 ).reset_index()
 
-investigation_df = pd.pivot_table(
-    cases_df,
-    index='Date',
-    values='Daily under investigation',
-    aggfunc='sum'
-).reset_index()
+# The investigation column will only be there if there are cases under investigation
+try:
+    investigation_df = pd.pivot_table(
+        cases_df,
+        index='Date',
+        values='Daily under investigation',
+        aggfunc='sum'
+    ).reset_index()
+except KeyError as e:
+    if str(e) == "'Daily under investigation'":
+        pass
+    else:
+        raise
 
 total_df = pd.pivot_table(
     cases_df,
@@ -168,12 +175,22 @@ total_df = pd.pivot_table(
     aggfunc='sum'
 ).reset_index()
 
-dataframes = [
-    import_df,
-    local_df,
-    investigation_df,
-    total_df
-]
+try:
+    dataframes = [
+        import_df,
+        local_df,
+        investigation_df,
+        total_df
+    ]
+except NameError as e:
+    if str(e) == "name 'investigation_df' is not defined":
+        dataframes = [
+            import_df,
+            local_df,
+            total_df
+        ]
+    else:
+        raise
 
 # Merge all dataframes together
 cases_df = reduce(
@@ -182,13 +199,25 @@ cases_df = reduce(
     ), dataframes
 )
 cases_df['Number of cases'] = cases_df['Daily total cases'].cumsum()
-daily_df = cases_df[
-    ['Date',
-     'Imported or import-related',
-     'Locally acquired',
-      'Daily under investigation',
-     'Daily total cases']
-].copy()
+
+try:
+    daily_df = cases_df[
+        ['Date',
+         'Imported or import-related',
+         'Locally acquired',
+          'Daily under investigation',
+         'Daily total cases']
+    ].copy()
+except KeyError as e:
+    if str(e) == '''"['Daily under investigation'] not in index"''':
+        daily_df = cases_df[
+        ['Date',
+         'Imported or import-related',
+         'Locally acquired',
+         'Daily total cases']
+    ].copy()
+    else:
+        raise
 
 daily_df.rename(columns={
     'Daily under investigation':'Under investigation',
