@@ -10,10 +10,11 @@ import pandas as pd
 from bs4 import BeautifulSoup as bs
 import re
 from selenium import webdriver
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
 import zipfile
 import urllib.request
 import os
@@ -41,6 +42,8 @@ os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
     
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
+
+# %%
 
 # Download HLFS csv file
 URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
@@ -80,6 +83,41 @@ hlfs_df['Data_value'] = pd.to_numeric(hlfs_df['Data_value'], errors='coerce')
 
 
 # %% 1. QUARTERLY SNAPSHOT
+
+# -----GDP GROWTH RATE-----
+URL = 'https://qem.infometrics.co.nz/account'
+options = Options()
+options.headless = False  # This setting stops a browser window from opening
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+driver.get(URL)
+
+element = WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '//*[@id="login-form"]/div[1]/input')
+        )
+    )
+element.send_keys('tristan.meuross@aucklandnz.com')
+
+driver.find_element(By.XPATH, '//*[@id="login-form"]/div[2]/input').send_keys('s9PKf52sZiVCsvx', Keys.ENTER)
+#%%
+
+URL = 'https://qem.infometrics.co.nz/auckland/indicators/gdp?compare=new-zealand'
+driver.get(URL)
+
+#%%
+
+element = WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '//*[@id="highcharts-t02xo8k-47"]/svg/g[6]/g')
+        )
+    )
+
+element.click()
+#%%
+driver.find_element(By.XPATH, '//*[@id="highcharts-t02xo8k-47"]/div/ul/li[4]').click()
+
+#%%
 
 # -----CONFIDENCE INDICIES-----
 # Create dataframe from RIMU monthly file
