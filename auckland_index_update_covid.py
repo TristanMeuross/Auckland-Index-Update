@@ -154,7 +154,8 @@ local_df = pd.pivot_table(
     aggfunc='sum'
 ).reset_index()
 
-# The investigation column will only be there if there are cases under investigation
+# The investigation column will only be in the MOH data if there are cases under investigation
+# If there are no cases under investigation, a dataframe of zeros will be created
 try:
     investigation_df = pd.pivot_table(
         cases_df,
@@ -164,7 +165,9 @@ try:
     ).reset_index()
 except KeyError as e:
     if str(e) == "'Daily under investigation'":
-        pass
+        zeros = np.zeros(shape=(len(local_df), 1)) # list of zeros of local_df length
+        investigation_df = pd.DataFrame(zeros, columns=['Daily under investigation'])
+        investigation_df = pd.concat([local_df[['Date']], investigation_df], axis=1)
     else:
         raise
 
@@ -175,22 +178,12 @@ total_df = pd.pivot_table(
     aggfunc='sum'
 ).reset_index()
 
-try:
-    dataframes = [
-        import_df,
-        local_df,
-        investigation_df,
-        total_df
-    ]
-except NameError as e:
-    if str(e) == "name 'investigation_df' is not defined":
-        dataframes = [
-            import_df,
-            local_df,
-            total_df
-        ]
-    else:
-        raise
+dataframes = [
+    import_df,
+    local_df,
+    investigation_df,
+    total_df
+]
 
 # Merge all dataframes together
 cases_df = reduce(
@@ -200,24 +193,13 @@ cases_df = reduce(
 )
 cases_df['Number of cases'] = cases_df['Daily total cases'].cumsum()
 
-try:
-    daily_df = cases_df[
-        ['Date',
-         'Imported or import-related',
-         'Locally acquired',
-          'Daily under investigation',
-         'Daily total cases']
-    ].copy()
-except KeyError as e:
-    if str(e) == '''"['Daily under investigation'] not in index"''':
-        daily_df = cases_df[
-        ['Date',
-         'Imported or import-related',
-         'Locally acquired',
-         'Daily total cases']
-    ].copy()
-    else:
-        raise
+daily_df = cases_df[[
+    'Date',
+    'Imported or import-related',
+    'Locally acquired',
+    'Daily under investigation',
+    'Daily total cases'
+]].copy()
 
 daily_df.rename(columns={
     'Daily under investigation':'Under investigation',
@@ -250,8 +232,7 @@ driver = webdriver.Chrome(
 driver.get(URL)  # opens URL on chrome to activate javascript
 soup = bs(driver.page_source, 'html.parser')  # uses bs to get data from browser
 driver.quit()  # quits browser
-
-link = soup.find('a', href=re.compile('covid_vaccinations_')).get('href')
+link = soup.find('a', href=re.compile('xlsx')).get('href')
 excel_path = ('https://www.health.govt.nz' + link)
 r = requests.get(
     excel_path,
