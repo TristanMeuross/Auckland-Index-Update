@@ -20,6 +20,7 @@ import numpy as np
 from functools import reduce
 import os
 import requests
+from glob import glob
 
 from Python import stats_odata as odata
 from modules.my_modules import upload_gsheets, download_gsheets, format_gsheets, clear_gsheets, delete_file
@@ -65,13 +66,12 @@ try:
     time.sleep(5)
 
     stats_download = element.get_attribute('href')
+    stats_df = pd.read_csv(
+        stats_download, dtype={'parameter': 'object', 'value': 'object'}
+    )
 
 finally:
     driver.quit()
-
-stats_df = pd.read_csv(
-    stats_download, dtype={'parameter': 'object', 'value': 'object'}
-)
 
 # Need to filter for needed datasets as the 'parameter' column has non-date values
 stats_df = stats_df.loc[
@@ -84,51 +84,63 @@ stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 
 # %% COVID CASES
 
+# Remove previously downloaded cases data files
+data_folder = os.path.join(
+    os.getenv('USERPROFILE'), 'Auckland-Index-Update/'
+)  # Create's path for operating user
+for f in glob('/data_files/source_case_curve*.csv'):
+    delete_file(data_folder, f)
+
 # Create cases dataframe from ESR nz covid dashboard
 URL = 'https://nzcoviddashboard.esr.cri.nz/#!/source'
 options = Options()
+data_folder = os.path.join(
+    os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files'
+)  # Create's path for operating user
+prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
+options.add_experimental_option('prefs', prefs)
 options.headless = False
 driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
                           options=options)
 
 driver.get(URL)
 
-try:
-    element = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located(
-            (By.XPATH, '//*[@id="time-period-select"]')
-        )
+element = WebDriverWait(driver, 15).until(
+    EC.presence_of_element_located(
+        (By.XPATH, '//*[@id="time-period-select"]')
     )
-    element.click()  # Select drop down
+)
+element.click()  # Select drop down
 
-    element = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located(
-            (By.XPATH, '//*[@id="time-period-select"]/div/div/div/div[2]/div/div[1]')
-        )
+element = WebDriverWait(driver, 15).until(
+    EC.presence_of_element_located(
+        (By.XPATH, '//*[@id="time-period-select"]/div/div/div/div[2]/div/div[1]')
     )
-    element.click()  # Select 'All'
+)
+element.click()  # Select 'All'
 
-    element = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located(
-            (By.XPATH, '//*[@id="source-viewCurveData"]')
-        )
+element = WebDriverWait(driver, 15).until(
+    EC.presence_of_element_located(
+        (By.XPATH, '//*[@id="source-viewCurveData"]')
     )
-    element.click()  # Click 'View data'
+)
+element.click()  # Click 'View data'
 
-    element = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located(
-            (By.XPATH, '//*[@id="source-downloadCurveData"]')
-        )
-    )
+alert =  WebDriverWait(driver, 15).until(EC.alert_is_present())
+alert.accept()
 
-    time.sleep(5)
+WebDriverWait(driver, 20).until(
+    EC.element_to_be_clickable((By.XPATH, '//*[@id="source-downloadCurveData"]'))
+).click()
 
-    cases_download = element.get_attribute('href')  # Copy download link for read_csv below
+time.sleep(5) # Wait for download to finish
 
-finally:
-    driver.quit()
+# Create cases dataframe from downloaded file
+for f in glob('data_files/source_case_curve*.csv'):
+    cases_df = pd.read_csv(f, skiprows=3).dropna(how='any')
 
-cases_df = pd.read_csv(cases_download, skiprows=3).dropna(how='any')
+driver.quit()
+
 cases_df['Imported or import-related'] = (
     cases_df['Daily imported case']
     + cases_df['Daily import-related case']
@@ -177,6 +189,7 @@ total_df = pd.pivot_table(
     values='Daily total cases',
     aggfunc='sum'
 ).reset_index()
+
 
 dataframes = [
     import_df,
@@ -948,7 +961,7 @@ URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
 options = Options()
 # options.headless = False
 data_folder = os.path.join(
-    os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files'
+    os.getenv('USERPROFILE'), 'Auckland-Index-Update\\data_files'
 )  # Create's path for operating user
 prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
 options.add_experimental_option('prefs', prefs)
