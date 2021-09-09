@@ -85,12 +85,9 @@ stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
 # %% COVID CASES
 
 # Remove previously downloaded cases data files
-data_folder = os.path.join(
-    os.getenv('USERPROFILE'), 'Auckland-Index-Update/'
-)  # Create's path for operating user
-for f in glob('/data_files/source_case_curve*.csv'):
-    delete_file(data_folder, f)
-
+for f in glob(r'C:\Users\meurost\Auckland-Index-Update\data_files\source_case_curve*.csv'):
+    os.remove(f)
+    
 # Create cases dataframe from ESR nz covid dashboard
 URL = 'https://nzcoviddashboard.esr.cri.nz/#!/source'
 options = Options()
@@ -126,8 +123,7 @@ element = WebDriverWait(driver, 15).until(
 )
 element.click()  # Click 'View data'
 
-alert =  WebDriverWait(driver, 15).until(EC.alert_is_present())
-alert.accept()
+time.sleep(10)
 
 WebDriverWait(driver, 20).until(
     EC.element_to_be_clickable((By.XPATH, '//*[@id="source-downloadCurveData"]'))
@@ -136,7 +132,7 @@ WebDriverWait(driver, 20).until(
 time.sleep(5) # Wait for download to finish
 
 # Create cases dataframe from downloaded file
-for f in glob('data_files/source_case_curve*.csv'):
+for f in glob(r'C:\Users\meurost\Auckland-Index-Update\data_files\source_case_curve*.csv'):
     cases_df = pd.read_csv(f, skiprows=3).dropna(how='any')
 
 driver.quit()
