@@ -25,7 +25,7 @@ from modules.my_modules import upload_gsheets, format_gsheets
 
 # Location of RIMU Datasheet
 rimu_file = 'data_files/Economic Update Key Charts.xlsx'
-economic_file = r'\\10.183.1.100\Shared\CityWide\Permanent\Research Information\Economic indicators\Economic Indicators Database - Economic.xlsm'
+economic_file = r'U:\CityWide\Permanent\Research Information\Economic indicators\Economic Indicators Database - Economic.xlsm'
 
 # header used for requests module authorisation
 header = {
@@ -38,46 +38,54 @@ proxies = {'http':os.environ['HTTP_PROXY2'],
            'https':os.environ['HTTPS_PROXY2']}
 
 os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
-    
+
+#%% 
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
-# Download HLFS csv file
-URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
-options = Options()
-options.headless = False
-driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
-                          options=options)
-driver.get(URL) #opens URL on chrome to activate javascript
-stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
-driver.quit() #quits browser
+# TEMPORARY FIX WHILE STATS NZ FIXES ONLINE DATASHEET
+# # Download HLFS csv file
+# URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
+# options = Options()
+# options.headless = False
+# driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+#                           options=options)
+# driver.get(URL) #opens URL on chrome to activate javascript
+# stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
+# driver.quit() #quits browser
 
-# Find link for Labour Market Statistics CSV file
-link = stats_soup.find('a', href=re.compile(
-    'Labour-market-statistics-')).get('href')
-csv_download = ('https://www.stats.govt.nz' + link)
+# # Find link for Labour Market Statistics CSV file
+# link = stats_soup.find('a', href=re.compile(
+#     'Labour-market-statistics-')).get('href')
+# csv_download = ('https://www.stats.govt.nz' + link)
 
-# Get zipfile download and unzip hlfs csv
-# Downloads zip file
-urllib.request.urlretrieve(
-    csv_download,
-    'labour-market-statistics-september-2020-quarter-csv.zip'
-)
-# Unzips file
-compressed_file = zipfile.ZipFile(
-    'labour-market-statistics-september-2020-quarter-csv.zip'
-) 
-# Searches for hlfs file
-filename = [s for s in compressed_file.namelist() if 'hlfs' in s] 
-# returns string of hlfs file
-csv_file = compressed_file.open(filename[0]) 
+# # Get zipfile download and unzip hlfs csv
+# # Downloads zip file
+# urllib.request.urlretrieve(
+#     csv_download,
+#     'labour-market-statistics-september-2020-quarter-csv.zip'
+# )
+# # Unzips file
+# compressed_file = zipfile.ZipFile(
+#     'labour-market-statistics-september-2020-quarter-csv.zip'
+# )
+
+# # Searches for hlfs file
+# filename = [s for s in compressed_file.namelist() if 'hlfs' in s] 
+# # returns string of hlfs file
+# csv_file = compressed_file.open(filename[0]) 
 
 # Open hlfs csv file as dataframe
-hlfs_df = pd.read_csv(csv_file, encoding='latin', dtype='object')
+hlfs_df = pd.read_csv(
+    'data_files/hlfs-jun-21qtr-csv.csv',
+    encoding='latin',
+    dtype='object',
+    index_col=False
+)
+
 hlfs_df['Period'] = pd.to_datetime(hlfs_df['Period'], format='%Y.%m')
 hlfs_df['Quarter'] = hlfs_df['Period'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
 hlfs_df['Data_value'] = pd.to_numeric(hlfs_df['Data_value'], errors='coerce')
-
 
 # %% 1. QUARTERLY SNAPSHOT
 

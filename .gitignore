@@ -6,3 +6,5 @@ building-consents-issued.zip
 labour-market-statistics-september-2020-quarter-csv.zip
 .pylint.d
 data_files/source_case_curve*
+data_files/hlfs*
+data_files/labour-market*

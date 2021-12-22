@@ -66,21 +66,23 @@ try:
     time.sleep(5)
 
     stats_download = element.get_attribute('href')
-    stats_df = pd.read_csv(
-        stats_download, dtype={'parameter': 'object', 'value': 'object'}
+    stats_df = pd.read_excel(
+        stats_download,
+        sheet_name='data',
+        dtype={'value': 'object'}
     )
 
 finally:
     driver.quit()
 
-# Need to filter for needed datasets as the 'parameter' column has non-date values
+# Filtering for only datasets that are needed
 stats_df = stats_df.loc[
-    (stats_df['indicator_name'] == 'Weekly traffic count')
-    | (stats_df['indicator_name'] == 'Tests per day')
-    | (stats_df['indicator_name'] == 'Covid-19 Vaccines Administered – Daily total')
+    (stats_df['Measure'] == 'Number of vehicles')
+    | (stats_df['Measure'] == 'People tested for COVID-19')
+    | (stats_df['Measure'] == 'Number of daily vaccines administered')
 ]
 
-stats_df['parameter'] = pd.to_datetime(stats_df['parameter'], format='%Y/%m/%d')
+stats_df['Period'] = pd.to_datetime(stats_df['Period'], format='%Y/%m/%d')
 
 # %% COVID CASES
 
@@ -220,15 +222,14 @@ cumulative_df = cases_df[['Date', 'Number of cases']].copy()
 tests_df = (
     (
         stats_df.loc[
-            (stats_df['indicator_name'] == 'Tests per day')
-            & (stats_df['sub_series_name'] == 'Tests by day'),
-            ['parameter', 'value']]
+            (stats_df['ResourceID'] == 'CPCOV1'),
+            ['Period', 'Value']]
     ).reset_index(drop=True)
 ).copy()
-tests_df['value'] = tests_df['value'].astype(float)
+tests_df['Value'] = tests_df['Value'].astype(float)
 tests_df.dropna(inplace=True)
 tests_df.rename(
-    columns={'parameter': 'Date', 'value': 'Tests per day'}, inplace=True
+    columns={'Period': 'Date', 'Value': 'Tests per day'}, inplace=True
 )
 
 # Create cumulative vaccines dataframe from MOH datasheet
@@ -252,7 +253,7 @@ r = requests.get(
 vaccines_cum_df = pd.read_excel(
     r.content,
     sheet_name='Cumulative',
-    usecols='A,B,C'
+    usecols='A,C'
 ).dropna(thresh=2)
 
 # Create share of population vaccinated dataframe from ourworldindata.org
@@ -262,16 +263,18 @@ vacc_share_df = (
     vacc_share_df.loc[
         vacc_share_df['location'] == 'New Zealand',
         ['date',
-         'people_vaccinated_per_hundred',
-         'people_fully_vaccinated_per_hundred']
+         'people_vaccinated',
+         'people_fully_vaccinated']
     ]
 ).dropna()
 vacc_share_df['date'] = pd.to_datetime(vacc_share_df['date'], format='%Y-%m-%d')
-vacc_share_df.rename(
-    columns={'people_vaccinated_per_hundred': '% of population vaccinated',
-             'people_fully_vaccinated_per_hundred': '% of population fully vaccinated'},
-    inplace=True
-)
+vacc_share_df['% of population vaccinated'] = vacc_share_df['people_vaccinated'] / 4207796 # HSU +12 population from MOH
+vacc_share_df['% of population fully vaccinated'] = vacc_share_df['people_fully_vaccinated'] / 4207796
+
+#
+vacc_share_df = vacc_share_df[['date',
+                               '% of population vaccinated',
+                               '% of population fully vaccinated']]
 
 # Upload to Google Sheets
 cases_dataframes = [
@@ -585,61 +588,61 @@ pt_df = download_df.join(pt_df_21['2021'])
 # Create light and heavy traffic dataframes
 light_df_19 = (
     stats_df.loc[
-        (stats_df['series_name'] == 'Auckland')
-        & (stats_df['sub_series_name'] == 'Light vehicles')
-        & (stats_df['parameter'] >= '2019-01-01')
-        & (stats_df['parameter'] <= '2019-12-31'),
-        ['parameter', 'value']
+        (stats_df['Geo'] == 'Auckland')
+        & (stats_df['Label1'] == 'Light vehicles')
+        & (stats_df['Period'] >= '2019-01-01')
+        & (stats_df['Period'] <= '2019-12-31'),
+        ['Period', 'Value']
     ]
 ).reset_index(drop=True)
 
 light_df_20 = (
     stats_df.loc[
-        (stats_df['series_name'] == 'Auckland')
-        & (stats_df['sub_series_name'] == 'Light vehicles')
-        & (stats_df['parameter'] >= '2020-01-01')
-        & (stats_df['parameter'] <= '2020-12-30'),
-        ['parameter', 'value']
+        (stats_df['Geo'] == 'Auckland')
+        & (stats_df['Label1'] == 'Light vehicles')
+        & (stats_df['Period'] >= '2020-01-01')
+        & (stats_df['Period'] <= '2020-12-30'),
+        ['Period', 'Value']
     ]
 ).reset_index(drop=True)
 
 light_df_21 = (
     stats_df.loc[
-        (stats_df['series_name'] == 'Auckland')
-        & (stats_df['sub_series_name'] == 'Light vehicles')
-        & (stats_df['parameter'] >= '2021-01-01')
-        & (stats_df['parameter'] <= '2021-12-28'),
-        ['parameter', 'value']
+        (stats_df['Geo'] == 'Auckland')
+        & (stats_df['Label1'] == 'Light vehicles')
+        & (stats_df['Period'] >= '2021-01-01')
+        & (stats_df['Period'] <= '2021-12-28'),
+        ['Period', 'Value']
     ]
 ).reset_index(drop=True)
 
 heavy_df_19 = (
     stats_df.loc[
-        (stats_df['series_name'] == 'Auckland')
-        & (stats_df['sub_series_name'] == 'Heavy vehicles')
-        & (stats_df['parameter'] >= '2019-01-01')
-        & (stats_df['parameter'] <= '2019-12-31'),
-        ['parameter', 'value']
+        (stats_df['Geo'] == 'Auckland')
+        & (stats_df['Label1'] == 'Heavy vehicles')
+        & (stats_df['Period'] >= '2019-01-01')
+        & (stats_df['Period'] <= '2019-12-31'),
+        ['Period', 'Value']
     ]
 ).reset_index(drop=True)
 
 heavy_df_20 = (
     stats_df.loc[
-        (stats_df['series_name'] == 'Auckland')
-        & (stats_df['sub_series_name'] == 'Heavy vehicles')
-        & (stats_df['parameter'] >= '2020-01-01')
-        & (stats_df['parameter'] <= '2020-12-30'),
-        ['parameter', 'value']
+        (stats_df['Geo'] == 'Auckland')
+        & (stats_df['Label1'] == 'Heavy vehicles')
+        & (stats_df['Period'] >= '2020-01-01')
+        & (stats_df['Period'] <= '2020-12-30'),
+        ['Period', 'Value']
     ]
 ).reset_index(drop=True)
 
 heavy_df_21 = (
     stats_df.loc[
-        (stats_df['series_name'] == 'Auckland')
-        & (stats_df['sub_series_name'] == 'Heavy vehicles')
-        & (stats_df['parameter'] >= '2021-01-01')
-        & (stats_df['parameter'] <= '2021-12-28'),
-        ['parameter', 'value']
+        (stats_df['Geo'] == 'Auckland')
+        & (stats_df['Label1'] == 'Heavy vehicles')
+        & (stats_df['Period'] >= '2021-01-01')
+        & (stats_df['Period'] <= '2021-12-28'),
+        ['Period', 'Value']
     ]
 ).reset_index(drop=True)
 
