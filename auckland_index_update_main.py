@@ -21,11 +21,11 @@ import quandl
 import time
 
 from Python import stats_odata as odata
-from modules.my_modules import upload_gsheets, format_gsheets
+from modules.my_modules import upload_gsheets, format_gsheets, delete_file
 
 # Location of RIMU Datasheet
 rimu_file = 'data_files/Economic Update Key Charts.xlsx'
-economic_file = r'U:\CityWide\Permanent\Research Information\Economic indicators\Economic Indicators Database - Economic.xlsm'
+economic_file = 'data_files/Economic Indicators Database - Economic.xlsm'
 
 # header used for requests module authorisation
 header = {
@@ -43,41 +43,40 @@ os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
-# TEMPORARY FIX WHILE STATS NZ FIXES ONLINE DATASHEET
-# # Download HLFS csv file
-# URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
-# options = Options()
-# options.headless = False
-# driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
-#                           options=options)
-# driver.get(URL) #opens URL on chrome to activate javascript
-# stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
-# driver.quit() #quits browser
+# Download HLFS csv file
+URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
+options = Options()
+options.headless = False
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+driver.get(URL) #opens URL on chrome to activate javascript
+stats_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browser
+driver.quit() #quits browser
 
-# # Find link for Labour Market Statistics CSV file
-# link = stats_soup.find('a', href=re.compile(
-#     'Labour-market-statistics-')).get('href')
-# csv_download = ('https://www.stats.govt.nz' + link)
+# Find link for Labour Market Statistics CSV file
+link = stats_soup.find('a', href=re.compile(
+    'Labour-market-statistics-')).get('href')
+csv_download = ('https://www.stats.govt.nz' + link)
 
-# # Get zipfile download and unzip hlfs csv
-# # Downloads zip file
-# urllib.request.urlretrieve(
-#     csv_download,
-#     'labour-market-statistics-september-2020-quarter-csv.zip'
-# )
-# # Unzips file
-# compressed_file = zipfile.ZipFile(
-#     'labour-market-statistics-september-2020-quarter-csv.zip'
-# )
+# Get zipfile download and unzip hlfs csv
+# Downloads zip file
+urllib.request.urlretrieve(
+    csv_download,
+    'labour-market-statistics-september-2020-quarter-csv.zip'
+)
+# Unzips file
+compressed_file = zipfile.ZipFile(
+    'labour-market-statistics-september-2020-quarter-csv.zip'
+)
 
-# # Searches for hlfs file
-# filename = [s for s in compressed_file.namelist() if 'hlfs' in s] 
-# # returns string of hlfs file
-# csv_file = compressed_file.open(filename[0]) 
+# Searches for hlfs file
+filename = [s for s in compressed_file.namelist() if 'hlfs' in s] 
+# returns string of hlfs file
+csv_file = compressed_file.open(filename[0]) 
 
 # Open hlfs csv file as dataframe
 hlfs_df = pd.read_csv(
-    'data_files/hlfs-jun-21qtr-csv.csv',
+    csv_file,
     encoding='latin',
     dtype='object',
     index_col=False
@@ -786,6 +785,9 @@ format_gsheets(
 
 time.sleep(10) # Slow down google API requests to not exceed limit
 
+#-----YOUTH-----
+
+
 # %% BUSINESS AND ECONOMY
 
 #-----EXPORTS AND IMPORTS-----
@@ -1143,9 +1145,30 @@ format_gsheets(
 time.sleep(10) # Slow down google API requests to not exceed limit
 
 # -----NZ STOCK EXCHANGE-----
+
+URL = 'https://www.spglobal.com/spdji/en/idsexport/file.xls?hostIdentifier=48190c8c-42c4-46af-8d1a-0cd5db894797&redesignExport=true&languageId=1&selectedModule=PerformanceGraphView&selectedSubModule=Graph&yearFlag=oneYearFlag&indexId=92029427'
+options = Options()
+data_folder = os.path.join(
+    os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files'
+)  # Create's path for operating user
+prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
+options.add_experimental_option('prefs', prefs)
+options.headless = False
+driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
+                          options=options)
+
+# Delete previously downloaded file
+delete_file(data_folder, 'PerformanceGraphExport.xls')
+
+# Download new NZX index file
+driver.get(URL)
+time.sleep(10) # wait for file to download
+driver.quit()
+
+#%%
+
 #Create NZX50 dataframe from S&P excel sheet (10 year period only)
-excel_file = 'https://www.spglobal.com/spdji/en/idsexport/file.xls?hostIdentifier=48190c8c-42c4-46af-8d1a-0cd5db894797&redesignExport=true&languageId=1&selectedModule=PerformanceGraphView&selectedSubModule=Graph&yearFlag=tenYearFlag&indexId=92029429'
-nzx50_df = pd.read_excel(excel_file,
+nzx50_df = pd.read_excel('data_files/PerformanceGraphExport.xls',
                           skiprows=6).dropna()
 
 nzx50_df.columns = ['Date',

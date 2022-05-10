@@ -17,18 +17,15 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import time
 import numpy as np
-from functools import reduce
 import os
-import requests
-from glob import glob
 
 from Python import stats_odata as odata
-from modules.my_modules import upload_gsheets, download_gsheets, format_gsheets, clear_gsheets, delete_file
+from modules.my_modules import upload_gsheets, download_gsheets, format_gsheets, delete_file
 
 # header used for requests module authorisation
 header = {
     'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'
 }
 
 # Setting proxies for gspread, requests and APIs
@@ -40,221 +37,99 @@ os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
-# %% Create stats portal data object
-
-URL = 'https://statisticsnz.shinyapps.io/covid_19_dashboard/'
-options = Options()
-options.headless = False  # This setting stops a browser window from opening
-driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
-                          options=options)
-driver.get(URL)
-
-try:
-    element = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located(
-            (By.XPATH, '//*[@id="download_data-show"]')
-        )
-    )
-    element.click()
-
-    element = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located(
-            (By.XPATH, '//*[@id="download_data-downloadData"]')
-        )
-    )
-
-    time.sleep(5)
-
-    stats_download = element.get_attribute('href')
-    stats_df = pd.read_excel(
-        stats_download,
-        sheet_name='data',
-        dtype={'value': 'object'}
-    )
-
-finally:
-    driver.quit()
-
-# Filtering for only datasets that are needed
-stats_df = stats_df.loc[
-    (stats_df['Measure'] == 'Number of vehicles')
-    | (stats_df['Measure'] == 'People tested for COVID-19')
-    | (stats_df['Measure'] == 'Number of daily vaccines administered')
-]
-
-stats_df['Period'] = pd.to_datetime(stats_df['Period'], format='%Y/%m/%d')
-
 # %% COVID CASES
 
-# Remove previously downloaded cases data files
-for f in glob(r'C:\Users\meurost\Auckland-Index-Update\data_files\source_case_curve*.csv'):
-    os.remove(f)
-    
-# Create cases dataframe from ESR nz covid dashboard
-URL = 'https://nzcoviddashboard.esr.cri.nz/#!/source'
-options = Options()
-data_folder = os.path.join(
-    os.getenv('USERPROFILE'), 'Auckland-Index-Update\data_files'
-)  # Create's path for operating user
-prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
-options.add_experimental_option('prefs', prefs)
-options.headless = False
-driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
-                          options=options)
+# Download cases data from MOH github repository
+cases_df = pd.read_csv('https://raw.githubusercontent.com/minhealthnz/nz-covid-data/main/cases/covid-cases.csv',
+                       dtype={'Report Date': object,
+                              'Case Status': object,
+                              'Sex': object,
+                              'Age group': object,
+                              'DHB': object,
+                              'Overseas Travel': object,
+                              'Historical': object})
+cases_df.loc[(cases_df['DHB'] == 'Auckland') |
+             (cases_df['DHB'] == 'Counties Manukau') |
+             (cases_df['DHB'] == 'Waitemata'), 'DHB'] = 'Auckland'
+cases_df.loc[cases_df['DHB'] != 'Auckland', 'DHB'] = 'Rest of New Zealand'
 
-driver.get(URL)
-
-element = WebDriverWait(driver, 15).until(
-    EC.presence_of_element_located(
-        (By.XPATH, '//*[@id="time-period-select"]')
-    )
-)
-element.click()  # Select drop down
-
-element = WebDriverWait(driver, 15).until(
-    EC.presence_of_element_located(
-        (By.XPATH, '//*[@id="time-period-select"]/div/div/div/div[2]/div/div[1]')
-    )
-)
-element.click()  # Select 'All'
-
-element = WebDriverWait(driver, 15).until(
-    EC.presence_of_element_located(
-        (By.XPATH, '//*[@id="source-viewCurveData"]')
-    )
-)
-element.click()  # Click 'View data'
-
-time.sleep(10)
-
-WebDriverWait(driver, 20).until(
-    EC.element_to_be_clickable((By.XPATH, '//*[@id="source-downloadCurveData"]'))
-).click()
-
-time.sleep(5) # Wait for download to finish
-
-# Create cases dataframe from downloaded file
-for f in glob(r'C:\Users\meurost\Auckland-Index-Update\data_files\source_case_curve*.csv'):
-    cases_df = pd.read_csv(f, skiprows=3).dropna(how='any')
-
-driver.quit()
-
-cases_df['Imported or import-related'] = (
-    cases_df['Daily imported case']
-    + cases_df['Daily import-related case']
-)
-cases_df['Locally acquired'] = (
-    cases_df['Daily locally acquired  epidemiologically linked']
-    + cases_df['Daily locally acquired case  unknown source']
-)
-cases_df['Date'] = pd.to_datetime(cases_df['Date'], format='%d/%m/%Y')
-cases_df = cases_df.iloc[::-1].reset_index()  # Reverse date order from oldest to newest
-
-import_df = pd.pivot_table(
+daily_df = pd.pivot_table(
     cases_df,
-    index='Date',
-    values='Imported or import-related',
-    aggfunc='sum'
-).reset_index()
+    values='Case Status',
+    columns='DHB',
+    index='Report Date',
+    aggfunc='count').fillna(0)
+daily_df.index = pd.to_datetime(daily_df.index)
+daily_df['Total'] = daily_df.sum(axis=1)
+daily_df = daily_df.sort_index().asfreq(freq='D', fill_value=0)
+cumulative_df = daily_df.cumsum()
+daily_df.reset_index(inplace=True)
+cumulative_df.reset_index(inplace=True)
 
-local_df = pd.pivot_table(
-    cases_df,
-    index='Date',
-    values='Locally acquired',
-    aggfunc='sum'
-).reset_index()
+# Create tests per day dataframe from stats api
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'CPCOV1')
+                &$select=Period,Value"""
+api_key = os.environ['STATS_KEY']
 
-# The investigation column will only be in the MOH data if there are cases under investigation
-# If there are no cases under investigation, a dataframe of zeros will be created
-try:
-    investigation_df = pd.pivot_table(
-        cases_df,
-        index='Date',
-        values='Daily under investigation',
-        aggfunc='sum'
-    ).reset_index()
-except KeyError as e:
-    if str(e) == "'Daily under investigation'":
-        zeros = np.zeros(shape=(len(local_df), 1)) # list of zeros of local_df length
-        investigation_df = pd.DataFrame(zeros, columns=['Daily under investigation'])
-        investigation_df = pd.concat([local_df[['Date']], investigation_df], axis=1)
-    else:
-        raise
-
-total_df = pd.pivot_table(
-    cases_df,
-    index='Date',
-    values='Daily total cases',
-    aggfunc='sum'
-).reset_index()
-
-
-dataframes = [
-    import_df,
-    local_df,
-    investigation_df,
-    total_df
-]
-
-# Merge all dataframes together
-cases_df = reduce(
-    lambda left, right: pd.merge(
-        left, right, on=['Date'], how='outer'
-    ), dataframes
+# Call the service
+tests_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
 )
-cases_df['Number of cases'] = cases_df['Daily total cases'].cumsum()
 
-daily_df = cases_df[[
-    'Date',
-    'Imported or import-related',
-    'Locally acquired',
-    'Daily under investigation',
-    'Daily total cases'
-]].copy()
+# Sort by date
+tests_df.sort_values(by='Period', inplace=True)
 
-daily_df.rename(columns={
-    'Daily under investigation':'Under investigation',
-    'Daily total cases': 'Total cases'},
-    inplace=True)
-cumulative_df = cases_df[['Date', 'Number of cases']].copy()
-
-# Create tests per day dataframe from stats_df
-tests_df = (
-    (
-        stats_df.loc[
-            (stats_df['ResourceID'] == 'CPCOV1'),
-            ['Period', 'Value']]
-    ).reset_index(drop=True)
-).copy()
-tests_df['Value'] = tests_df['Value'].astype(float)
-tests_df.dropna(inplace=True)
 tests_df.rename(
     columns={'Period': 'Date', 'Value': 'Tests per day'}, inplace=True
 )
 
-# Create cumulative vaccines dataframe from MOH datasheet
-URL = 'https://www.health.govt.nz/our-work/diseases-and-conditions/covid-19-novel-coronavirus/covid-19-data-and-statistics/covid-19-vaccine-data'
-options = Options()
-options.headless = False  # This setting stops a browser window from opening
-driver = webdriver.Chrome(
-    executable_path=r'C:\windows\chromedriver', options=options
-)
-driver.get(URL)  # opens URL on chrome to activate javascript
-soup = bs(driver.page_source, 'html.parser')  # uses bs to get data from browser
-driver.quit()  # quits browser
-link = soup.find('a', href=re.compile('xlsx')).get('href')
-excel_path = ('https://www.health.govt.nz' + link)
-r = requests.get(
-    excel_path,
-    headers=header,
-    verify=False
-)  # Collects excel datasheet for use in read_excel
+# Create vaccines per day dataframe from stats api
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'CPCOV9')
+                &$select=Period,Label1,Value"""
+api_key = os.environ['STATS_KEY']
 
-vaccines_cum_df = pd.read_excel(
-    r.content,
-    sheet_name='Cumulative',
-    usecols='A,C'
-).dropna(thresh=2)
+# Call the service
+vaccines_daily_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
+)
+
+# Pivot 'dose type' into columns
+vaccines_daily_df = pd.pivot_table(
+    vaccines_daily_df,
+    values='Value',
+    columns='Label1',
+    index='Period'
+).reset_index()
+
+# Sort by date
+vaccines_daily_df.sort_values(by='Period', inplace=True)
+
+# Organise columns
+vaccines_daily_df = vaccines_daily_df[[
+    'Period',
+    'First dose administered',
+    'Second dose administered',
+    'Third primary administered',
+    'Boosters administered'
+]]
 
 # Create share of population vaccinated dataframe from ourworldindata.org
 csv_file = 'https://github.com/owid/covid-19-data/raw/master/public/data/vaccinations/vaccinations.csv'
@@ -268,29 +143,24 @@ vacc_share_df = (
     ]
 ).dropna()
 vacc_share_df['date'] = pd.to_datetime(vacc_share_df['date'], format='%Y-%m-%d')
-vacc_share_df['% of population vaccinated'] = vacc_share_df['people_vaccinated'] / 4207796 # HSU +12 population from MOH
-vacc_share_df['% of population fully vaccinated'] = vacc_share_df['people_fully_vaccinated'] / 4207796
+vacc_share_df['% of population with one dose'] = vacc_share_df['people_vaccinated'] / 4209057 # HSU +12 population from MOH
+vacc_share_df['% of population with two or more doses'] = vacc_share_df['people_fully_vaccinated'] / 4209057
 
 #
 vacc_share_df = vacc_share_df[['date',
-                               '% of population vaccinated',
-                               '% of population fully vaccinated']]
+                               '% of population with one dose',
+                               '% of population with two or more doses']]
 
 # Upload to Google Sheets
 cases_dataframes = [
     daily_df,
     cumulative_df,
     tests_df,
-    vaccines_cum_df,
+    vaccines_daily_df,
     vacc_share_df
 ]
 
 workbook_name = '1. Auckland-index-covid-dashboard-covid-cases'
-
-clear_gsheets(
-    workbook_name,
-    sheets=[0]
-)
 
 upload_gsheets(
     workbook_name,
@@ -318,8 +188,8 @@ format_gsheets(
 format_gsheets(
     workbook_name,
     'B:E',
-    'NUMBER',
-    '0.00',
+    'PERCENT',
+    '0.0%',
     sheets=[4]
 )
 
@@ -527,7 +397,7 @@ driver = webdriver.Chrome(executable_path=r'C:\windows\chromedriver',
 driver.get(URL)  # Opens URL on chrome to activate javascript
 at_soup = bs(driver.page_source, 'html.parser')  # Uses bs to get data from browser
 driver.quit()  # Quits browser
-link = at_soup.find('a', href=re.compile('daily-patronage-for-at-web')).get('href')
+link = at_soup.find('a', href=re.compile('daily-patronage-for-at')).get('href')
 excel_file = 'https://at.govt.nz/' + link
 
 at_df = pd.concat(
@@ -541,26 +411,26 @@ at_df = pd.concat(
 at_df = at_df.iloc[::-1]  # Reverse date order from oldest to newest
 at_df['Rolling'] = at_df['Total'].rolling(7).mean().round(0)
 
-# Create daily public transport patronage dataframe - NOTE that at_df file starts at July 2019
-pt_df_21 = (
+# Create daily public transport patronage dataframe - NOTE that at_df file starts at July 2020
+pt_df_22 = (
     at_df.loc[
-        (at_df['Business Date'] >= '2021-01-01')
-        & (at_df['Business Date'] <= '2021-12-28'),  # Ends 28th to line up with 2019-20 year's weekdays
+        (at_df['Business Date'] >= '2022-01-01')
+        & (at_df['Business Date'] <= '2022-12-31'),  # Ends 28th to line up with 2019-20 year's weekdays
         ['Business Date', 'Rolling']
     ]
 ).reset_index(drop=True)
 
-pt_df_21.rename(columns={'Rolling': '2021'}, inplace=True)
+pt_df_22.rename(columns={'Rolling': '2022'}, inplace=True)
 
 # Creates dataframe with NaN values
-nan_df_21 = pd.DataFrame(
-    [[np.nan] * len(pt_df_21.columns)],
+nan_df_22 = pd.DataFrame(
+    [[np.nan] * len(pt_df_22.columns)],
     index=[58.5],
-    columns=pt_df_21.columns
+    columns=pt_df_22.columns
 )
 
-# Adds empty rows to line weekdays up for 2019-20 year's with 2021
-pt_df_21 = nan_df_21.append(pt_df_21).sort_index().reset_index(drop=True)
+# Adds empty row for missing leap year day to line up with 2020
+pt_df_22 = nan_df_22.append(pt_df_22).sort_index().reset_index(drop=True)
 
 # Download patronage data data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -578,71 +448,125 @@ download_df = download_gsheets(
 
 download_df['Date'] = pd.to_datetime(download_df['Date'], format='%Y-%m-%d')
 download_df.columns = download_df.columns.astype(str)  # Convert column headers to string
-download_df.drop(columns=['2021'], inplace=True)
+download_df.drop(columns=['2022'], inplace=True)
+download_df['2021'] = pd.to_numeric(download_df['2021'].str.replace(',', ''), errors='coerce')
 download_df['2020'] = pd.to_numeric(download_df['2020'].str.replace(',', ''), errors='coerce')
 download_df['2019'] = pd.to_numeric(download_df['2019'].str.replace(',', ''), errors='coerce')
 
 # Join dataframes, adds the 2021 column to
-pt_df = download_df.join(pt_df_21['2021'])
+pt_df = download_df.join(pt_df_22['2022'])
 
-# Create light and heavy traffic dataframes
+# Create light traffic dataframes from stats api
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'CPTRA5' and
+                        Geo eq 'Auckland' and
+                        Label1 eq 'Light vehicles')
+                &$select=Period,Value"""
+api_key = os.environ['STATS_KEY']
+
+# Call the service
+light_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
+)
+
+light_df.sort_values(by='Period', inplace=True)
+
+light_df['Rolling'] = light_df['Value'].rolling(7).mean().round(0)
+
 light_df_19 = (
-    stats_df.loc[
-        (stats_df['Geo'] == 'Auckland')
-        & (stats_df['Label1'] == 'Light vehicles')
-        & (stats_df['Period'] >= '2019-01-01')
-        & (stats_df['Period'] <= '2019-12-31'),
-        ['Period', 'Value']
+    light_df.loc[
+        (light_df['Period'] >= '2019-01-01')
+        & (light_df['Period'] <= '2019-12-31'),
+        ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
 
 light_df_20 = (
-    stats_df.loc[
-        (stats_df['Geo'] == 'Auckland')
-        & (stats_df['Label1'] == 'Light vehicles')
-        & (stats_df['Period'] >= '2020-01-01')
-        & (stats_df['Period'] <= '2020-12-30'),
-        ['Period', 'Value']
+    light_df.loc[
+        (light_df['Period'] >= '2020-01-01')
+        & (light_df['Period'] <= '2020-12-31'),
+        ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
 
 light_df_21 = (
-    stats_df.loc[
-        (stats_df['Geo'] == 'Auckland')
-        & (stats_df['Label1'] == 'Light vehicles')
-        & (stats_df['Period'] >= '2021-01-01')
-        & (stats_df['Period'] <= '2021-12-28'),
-        ['Period', 'Value']
+    light_df.loc[
+        (light_df['Period'] >= '2021-01-01')
+        & (light_df['Period'] <= '2021-12-31'),
+        ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
 
+light_df_22 = (
+    light_df.loc[
+        (light_df['Period'] >= '2022-01-01')
+        & (light_df['Period'] <= '2022-12-31'),
+        ['Period', 'Rolling']
+    ]
+).reset_index(drop=True)
+
+# Create heavy traffic dataframes from stats api
+service = "https://api.stats.govt.nz/opendata/v1/"
+endpoint = "Covid-19Indicators"
+entity = "Observations"
+query_option = """$filter=(
+                        ResourceID eq 'CPTRA5' and
+                        Geo eq 'Auckland' and
+                        Label1 eq 'Heavy vehicles')
+                &$select=Period,Value"""
+api_key = os.environ['STATS_KEY']
+
+# Call the service
+heavy_df = odata.get_odata(
+    service,
+    endpoint,
+    entity,
+    query_option,
+    api_key,
+    proxies
+)
+
+heavy_df.sort_values(by='Period', inplace=True)
+
+heavy_df['Rolling'] = heavy_df['Value'].rolling(7).mean().round(0)
+
 heavy_df_19 = (
-    stats_df.loc[
-        (stats_df['Geo'] == 'Auckland')
-        & (stats_df['Label1'] == 'Heavy vehicles')
-        & (stats_df['Period'] >= '2019-01-01')
-        & (stats_df['Period'] <= '2019-12-31'),
-        ['Period', 'Value']
+    heavy_df.loc[
+        (heavy_df['Period'] >= '2019-01-01')
+        & (heavy_df['Period'] <= '2019-12-31'),
+        ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
 
 heavy_df_20 = (
-    stats_df.loc[
-        (stats_df['Geo'] == 'Auckland')
-        & (stats_df['Label1'] == 'Heavy vehicles')
-        & (stats_df['Period'] >= '2020-01-01')
-        & (stats_df['Period'] <= '2020-12-30'),
-        ['Period', 'Value']
+    heavy_df.loc[
+        (heavy_df['Period'] >= '2020-01-01')
+        & (heavy_df['Period'] <= '2020-12-31'),
+        ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
 
 heavy_df_21 = (
-    stats_df.loc[
-        (stats_df['Geo'] == 'Auckland')
-        & (stats_df['Label1'] == 'Heavy vehicles')
-        & (stats_df['Period'] >= '2021-01-01')
-        & (stats_df['Period'] <= '2021-12-28'),
-        ['Period', 'Value']
+    heavy_df.loc[
+        (heavy_df['Period'] >= '2021-01-01')
+        & (heavy_df['Period'] <= '2021-12-31'),
+        ['Period', 'Rolling']
+    ]
+).reset_index(drop=True)
+
+heavy_df_22 = (
+    heavy_df.loc[
+        (heavy_df['Period'] >= '2022-01-01')
+        & (heavy_df['Period'] <= '2022-12-31'),
+        ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
 
@@ -650,32 +574,43 @@ heavy_df_21 = (
 light_df_19.columns = ['Date', '2019']
 light_df_20.columns = ['Date', '2020']
 light_df_21.columns = ['Date', '2021']
+light_df_22.columns = ['Date', '2022']
 heavy_df_19.columns = ['Date', '2019']
 heavy_df_20.columns = ['Date', '2020']
 heavy_df_21.columns = ['Date', '2021']
+heavy_df_22.columns = ['Date', '2022']
 
-# Add empty cells to line up weekdays across 2019-21
-nan_df_20 = pd.DataFrame(
-    [[np.nan] * len(light_df_20.columns)],
-    index=[0],
-    columns=light_df_20.columns
-)
+# # Add empty cells to line up weekdays across 2019-21
+# nan_df_20 = pd.DataFrame(
+#     [[np.nan] * len(light_df_20.columns)],
+#     index=[0],
+#     columns=light_df_20.columns
+# )
 
-nan_df_21 = pd.DataFrame(
-    [[np.nan] * len(light_df_21.columns)],
-    index=[0, 1, 2],
-    columns=light_df_21.columns
-)
+# nan_df_21 = pd.DataFrame(
+#     [[np.nan] * len(light_df_21.columns)],
+#     index=[0, 1, 2],
+#     columns=light_df_21.columns
+# )
 
-# Adds empty rows to line weekdays up for 2019-20 year's with 2021
-light_df_20 = nan_df_20.append(light_df_20, ignore_index=True)
-light_df_21 = nan_df_21.append(light_df_21, ignore_index=True)
-heavy_df_20 = nan_df_20.append(heavy_df_20, ignore_index=True)
-heavy_df_21 = nan_df_21.append(heavy_df_21, ignore_index=True)
+# # Adds empty rows to line weekdays up for 2019-20 year's with 2021
+# light_df_20 = nan_df_20.append(light_df_20, ignore_index=True)
+# light_df_21 = nan_df_21.append(light_df_21, ignore_index=True)
+# heavy_df_20 = nan_df_20.append(heavy_df_20, ignore_index=True)
+# heavy_df_21 = nan_df_21.append(heavy_df_21, ignore_index=True)
 
-# Join 2020 and 2019 into one dataframe
-light_df = light_df_19.join([light_df_20['2020'], light_df_21['2021']])
-heavy_df = heavy_df_19.join([heavy_df_20['2020'], heavy_df_21['2021']])
+# Join 2022, 2021 and 2020 into one dataframe
+light_df = light_df_19.join([
+    light_df_20['2020'],
+    light_df_21['2021'],
+    light_df_22['2022']
+])
+
+heavy_df = heavy_df_19.join([
+    heavy_df_20['2020'],
+    heavy_df_21['2021'],
+    heavy_df_22['2022']
+])
 
 # Upload to Google Sheets
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -839,10 +774,16 @@ arrivals_21_df = arrivals_df.loc[
     & (arrivals_df['Period'] <= '2021-12-31')
 ].reset_index(drop=True)
 
+arrivals_22_df = arrivals_df.loc[
+    (arrivals_df['Period'] >= '2022-01-01')
+    & (arrivals_df['Period'] <= '2022-12-31')
+].reset_index(drop=True)
+
 # Rename columns
 arrivals_19_df.columns = ['Date', '2019']
 arrivals_20_df.columns = ['Date', '2020']
 arrivals_21_df.columns = ['Date', '2021']
+arrivals_22_df.columns = ['Date', '2022']
 
 # Drop 29th Feb line from 2020 dataframe
 i = arrivals_20_df[(arrivals_20_df['Date'] == '2020-02-29')].index
@@ -850,7 +791,11 @@ arrivals_20_df.drop(i, inplace=True)
 arrivals_20_df.reset_index(drop=True, inplace=True)
 
 # Join three dataframes together
-arrivals_df = arrivals_19_df.join([arrivals_20_df['2020'], arrivals_21_df['2021']])
+arrivals_df = arrivals_19_df.join([
+    arrivals_20_df['2020'],
+    arrivals_21_df['2021'],
+    arrivals_22_df['2022']
+])
 
 # Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
@@ -915,6 +860,7 @@ pivot_df = pivot_df.rolling(28).mean()
 df_2019 = pivot_df.loc['2019-01-01':'2019-12-31']
 df_2020 = pivot_df.loc['2020-01-01':'2020-12-31']
 df_2021 = pivot_df.loc['2021-01-01':'2021-12-31']
+df_2022 = pivot_df.loc['2022-01-01':'2022-12-31']
 df_2019_ly = (df_2019.append(df_2019.iloc[-1:]))  # Create 366 line 2019 dataframe (last day repeated) to compare with 2020 leap year
 
 # Calculate 2020 percentage change
@@ -925,8 +871,12 @@ trade_df_20 = (pct_df.pct_change(periods=366)).dropna()
 pct_df = df_2019.append(df_2021)
 trade_df_21 = (pct_df.pct_change(periods=365)).dropna()
 
+# Calculate 2022 percentage change
+pct_df = df_2019.append(df_2022)
+trade_df_22 = (pct_df.pct_change(periods=365)).dropna()
+
 # Combine df's
-trade_df = trade_df_20.append(trade_df_21)
+trade_df = pd.concat([trade_df_20, trade_df_21, trade_df_22])
 trade_df.reset_index(inplace=True)
 trade_df.rename(
     {'All': 'Total'},
@@ -999,7 +949,8 @@ national_df = pd.read_csv(
 national_df.drop(national_df.index[0], inplace=True)
 national_df.reset_index(inplace=True)
 national_df['year'] = '2020'  # Create year column to convert date column (date column has no year)
-national_df.loc[48:, 'year'] = '2021'  # Update 2021 year
+national_df.loc[48:99, 'year'] = '2021'  # Update 2021 year
+national_df.loc[100:, 'year'] = '2022'  # Update 2022 year
 national_df['Date'] = pd.to_datetime(
     national_df[['index', 'year']].astype(str).apply('-'.join, 1),
     format='%b-%d-%Y'
@@ -1046,7 +997,8 @@ regional_df = pd.read_csv(
 regional_df.drop(regional_df.index[0], inplace=True)
 regional_df.reset_index(inplace=True)
 regional_df['year'] = '2020'  # Create year column to convert date column (date column has no year)
-regional_df.loc[48:, 'year'] = '2021'  # Update 2021 year
+regional_df.loc[48:99, 'year'] = '2021'  # Update 2021 year
+regional_df.loc[100:, 'year'] = '2022'  # Update 2022 year
 regional_df['Date'] = pd.to_datetime(
     regional_df[['index', 'year']].astype(str).apply('-'.join, 1),
     format='%b-%d-%Y'
