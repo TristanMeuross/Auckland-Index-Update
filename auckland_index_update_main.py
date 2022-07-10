@@ -34,10 +34,11 @@ header = {
 }
 
 # Setting proxies for gspread, requests and APIs
-proxies = {'http':os.environ['HTTP_PROXY2'],
-           'https':os.environ['HTTPS_PROXY2']}
+proxies = {}
+# proxies = {'http':os.environ['HTTP_PROXY2'],
+#            'https':os.environ['HTTPS_PROXY2']}
 
-os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
+# os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']
 
 #%% 
 # To upload to google sheets, sheet needs to share to email:
@@ -454,7 +455,7 @@ format_gsheets(
 
 time.sleep(10) # Slow down google API requests to not exceed limit
 
-#%%
+
 # -----TRANSPORT-----
 #AT excel file download name changes, so needs to be scraped
 URL = 'https://at.govt.nz/about-us/reports-publications/at-metro-patronage-report/'
@@ -468,7 +469,7 @@ at_soup = bs(driver.page_source, 'html.parser') #uses bs to get data from browse
 driver.quit() #quits browser
 link = at_soup.find(
     'a',
-    href=re.compile('web-pax-')
+    href=re.compile('-pax-')
 ).get('href')
 xlsx_file = 'https://at.govt.nz/' + link
 
@@ -645,7 +646,7 @@ format_gsheets(
 )
 
 time.sleep(10) # Slow down google API requests to not exceed limit
-
+#%%
 #-----EMPLOYMENT AND UNEMPLOYMENT-----
 # Create unemployment datafram from RIMU monthly datasheet
 unemp_rate_df = (
@@ -836,6 +837,7 @@ export_df['Rest of New Zealand ports'] = (
     export_df['All New Zealand ports']
     - export_df['All Auckland ports']
 )
+export_df['Period'] = pd.to_datetime(export_df['Period'], format='%Y-%m-%d')
 export_df['Quarter'] = export_df['Period'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
 export_df.dropna(inplace=True) # Drop rows with less than 12 sum values
 export_df = export_df.iloc[0::3,:] # Retain end of quarter month only
@@ -933,6 +935,7 @@ import_df['Rest of New Zealand ports'] = (
     import_df['All New Zealand ports']
     - import_df['All Auckland ports']
 )
+import_df['Period'] = pd.to_datetime(import_df['Period'], format='%Y-%m-%d')
 import_df['Quarter'] = import_df['Period'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
 import_df.dropna(inplace=True)
 import_df = import_df.iloc[0::3,:]
@@ -1060,7 +1063,7 @@ format_gsheets(
 )
 
 time.sleep(10) # Slow down google API requests to not exceed limit
-
+#%%
 # -----EXCHANGE RATES-----
 api_key = os.environ['QUANDL_KEY']
 
@@ -1143,7 +1146,7 @@ format_gsheets(
 )
 
 time.sleep(10) # Slow down google API requests to not exceed limit
-
+#%%
 # -----NZ STOCK EXCHANGE-----
 
 URL = 'https://www.spglobal.com/spdji/en/idsexport/file.xls?hostIdentifier=48190c8c-42c4-46af-8d1a-0cd5db894797&redesignExport=true&languageId=1&selectedModule=PerformanceGraphView&selectedSubModule=Graph&yearFlag=oneYearFlag&indexId=92029427'
@@ -1165,7 +1168,6 @@ driver.get(URL)
 time.sleep(10) # wait for file to download
 driver.quit()
 
-#%%
 
 #Create NZX50 dataframe from S&P excel sheet (10 year period only)
 nzx50_df = pd.read_excel('data_files/PerformanceGraphExport.xls',

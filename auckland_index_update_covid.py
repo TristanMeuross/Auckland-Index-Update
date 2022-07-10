@@ -29,10 +29,11 @@ header = {
 }
 
 # Setting proxies for gspread, requests and APIs
-proxies = {'http':os.environ['HTTP_PROXY2'],
-           'https':os.environ['HTTPS_PROXY2']}
+proxies = {}
+# proxies = {'http':os.environ['HTTP_PROXY2'],
+#            'https':os.environ['HTTPS_PROXY2']}
 
-os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']   
+# os.environ['HTTPS_PROXY'] = os.environ['HTTPS_PROXY2']   
 
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
@@ -422,16 +423,6 @@ pt_df_22 = (
 
 pt_df_22.rename(columns={'Rolling': '2022'}, inplace=True)
 
-# Creates dataframe with NaN values
-nan_df_22 = pd.DataFrame(
-    [[np.nan] * len(pt_df_22.columns)],
-    index=[58.5],
-    columns=pt_df_22.columns
-)
-
-# Adds empty row for missing leap year day to line up with 2020
-pt_df_22 = nan_df_22.append(pt_df_22).sort_index().reset_index(drop=True)
-
 # Download patronage data data already in Google Sheet (starts Jan 2019)
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
 format_gsheets(
@@ -449,8 +440,6 @@ download_df = download_gsheets(
 download_df['Date'] = pd.to_datetime(download_df['Date'], format='%Y-%m-%d')
 download_df.columns = download_df.columns.astype(str)  # Convert column headers to string
 download_df.drop(columns=['2022'], inplace=True)
-download_df['2021'] = pd.to_numeric(download_df['2021'].str.replace(',', ''), errors='coerce')
-download_df['2020'] = pd.to_numeric(download_df['2020'].str.replace(',', ''), errors='coerce')
 download_df['2019'] = pd.to_numeric(download_df['2019'].str.replace(',', ''), errors='coerce')
 
 # Join dataframes, adds the 2021 column to
@@ -485,22 +474,6 @@ light_df_19 = (
     light_df.loc[
         (light_df['Period'] >= '2019-01-01')
         & (light_df['Period'] <= '2019-12-31'),
-        ['Period', 'Rolling']
-    ]
-).reset_index(drop=True)
-
-light_df_20 = (
-    light_df.loc[
-        (light_df['Period'] >= '2020-01-01')
-        & (light_df['Period'] <= '2020-12-31'),
-        ['Period', 'Rolling']
-    ]
-).reset_index(drop=True)
-
-light_df_21 = (
-    light_df.loc[
-        (light_df['Period'] >= '2021-01-01')
-        & (light_df['Period'] <= '2021-12-31'),
         ['Period', 'Rolling']
     ]
 ).reset_index(drop=True)
@@ -546,22 +519,6 @@ heavy_df_19 = (
     ]
 ).reset_index(drop=True)
 
-heavy_df_20 = (
-    heavy_df.loc[
-        (heavy_df['Period'] >= '2020-01-01')
-        & (heavy_df['Period'] <= '2020-12-31'),
-        ['Period', 'Rolling']
-    ]
-).reset_index(drop=True)
-
-heavy_df_21 = (
-    heavy_df.loc[
-        (heavy_df['Period'] >= '2021-01-01')
-        & (heavy_df['Period'] <= '2021-12-31'),
-        ['Period', 'Rolling']
-    ]
-).reset_index(drop=True)
-
 heavy_df_22 = (
     heavy_df.loc[
         (heavy_df['Period'] >= '2022-01-01')
@@ -572,45 +529,19 @@ heavy_df_22 = (
 
 # Rename columns
 light_df_19.columns = ['Date', '2019']
-light_df_20.columns = ['Date', '2020']
-light_df_21.columns = ['Date', '2021']
 light_df_22.columns = ['Date', '2022']
 heavy_df_19.columns = ['Date', '2019']
-heavy_df_20.columns = ['Date', '2020']
-heavy_df_21.columns = ['Date', '2021']
 heavy_df_22.columns = ['Date', '2022']
 
-# # Add empty cells to line up weekdays across 2019-21
-# nan_df_20 = pd.DataFrame(
-#     [[np.nan] * len(light_df_20.columns)],
-#     index=[0],
-#     columns=light_df_20.columns
-# )
-
-# nan_df_21 = pd.DataFrame(
-#     [[np.nan] * len(light_df_21.columns)],
-#     index=[0, 1, 2],
-#     columns=light_df_21.columns
-# )
-
-# # Adds empty rows to line weekdays up for 2019-20 year's with 2021
-# light_df_20 = nan_df_20.append(light_df_20, ignore_index=True)
-# light_df_21 = nan_df_21.append(light_df_21, ignore_index=True)
-# heavy_df_20 = nan_df_20.append(heavy_df_20, ignore_index=True)
-# heavy_df_21 = nan_df_21.append(heavy_df_21, ignore_index=True)
 
 # Join 2022, 2021 and 2020 into one dataframe
-light_df = light_df_19.join([
-    light_df_20['2020'],
-    light_df_21['2021'],
+light_df = light_df_19.join(
     light_df_22['2022']
-])
+)
 
-heavy_df = heavy_df_19.join([
-    heavy_df_20['2020'],
-    heavy_df_21['2021'],
+heavy_df = heavy_df_19.join(
     heavy_df_22['2022']
-])
+)
 
 # Upload to Google Sheets
 workbook_name = '6. Auckland-index-covid-dashboard-transport'
@@ -764,16 +695,6 @@ arrivals_19_df = arrivals_df.loc[
     & (arrivals_df['Period'] <= '2019-12-31')
 ].reset_index(drop=True)
 
-arrivals_20_df = arrivals_df.loc[
-    (arrivals_df['Period'] >= '2020-01-01')
-    & (arrivals_df['Period'] <= '2020-12-31')
-].reset_index(drop=True)
-
-arrivals_21_df = arrivals_df.loc[
-    (arrivals_df['Period'] >= '2021-01-01')
-    & (arrivals_df['Period'] <= '2021-12-31')
-].reset_index(drop=True)
-
 arrivals_22_df = arrivals_df.loc[
     (arrivals_df['Period'] >= '2022-01-01')
     & (arrivals_df['Period'] <= '2022-12-31')
@@ -781,21 +702,12 @@ arrivals_22_df = arrivals_df.loc[
 
 # Rename columns
 arrivals_19_df.columns = ['Date', '2019']
-arrivals_20_df.columns = ['Date', '2020']
-arrivals_21_df.columns = ['Date', '2021']
 arrivals_22_df.columns = ['Date', '2022']
 
-# Drop 29th Feb line from 2020 dataframe
-i = arrivals_20_df[(arrivals_20_df['Date'] == '2020-02-29')].index
-arrivals_20_df.drop(i, inplace=True)
-arrivals_20_df.reset_index(drop=True, inplace=True)
-
 # Join three dataframes together
-arrivals_df = arrivals_19_df.join([
-    arrivals_20_df['2020'],
-    arrivals_21_df['2021'],
+arrivals_df = arrivals_19_df.join(
     arrivals_22_df['2022']
-])
+)
 
 # Upload to Google sheets
 workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
