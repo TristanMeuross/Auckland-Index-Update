@@ -16,7 +16,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import time
-import numpy as np
 import os
 
 from Python import stats_odata as odata
@@ -38,267 +37,101 @@ proxies = {}
 # To upload to google sheets, sheet needs to share to email:
 # auckland-index-update@auckland-index-update.iam.gserviceaccount.com
 
-# %% COVID CASES
+# %% CITY CENTRE RECOVERY
 
-# Download cases data from MOH github repository
-cases_df = pd.read_csv('https://raw.githubusercontent.com/minhealthnz/nz-covid-data/main/cases/covid-cases.csv',
-                       dtype={'Report Date': object,
-                              'Case Status': object,
-                              'Sex': object,
-                              'Age group': object,
-                              'DHB': object,
-                              'Overseas Travel': object,
-                              'Historical': object})
-cases_df.loc[(cases_df['DHB'] == 'Auckland') |
-             (cases_df['DHB'] == 'Counties Manukau') |
-             (cases_df['DHB'] == 'Waitemata'), 'DHB'] = 'Auckland'
-cases_df.loc[cases_df['DHB'] != 'Auckland', 'DHB'] = 'Rest of New Zealand'
 
-daily_df = pd.pivot_table(
-    cases_df,
-    values='Case Status',
-    columns='DHB',
-    index='Report Date',
-    aggfunc='count').fillna(0)
-daily_df.index = pd.to_datetime(daily_df.index)
-daily_df['Total'] = daily_df.sum(axis=1)
-daily_df = daily_df.sort_index().asfreq(freq='D', fill_value=0)
-cumulative_df = daily_df.cumsum()
-daily_df.reset_index(inplace=True)
-cumulative_df.reset_index(inplace=True)
+# %% CONFIDENCE INDICIES
 
-# Create tests per day dataframe from stats api
-service = "https://api.stats.govt.nz/opendata/v1/"
-endpoint = "Covid-19Indicators"
-entity = "Observations"
-query_option = """$filter=(
-                        ResourceID eq 'CPCOV1')
-                &$select=Period,Value"""
-api_key = os.environ['STATS_KEY']
+rimu_file = 'data_files/Economic Update Key Charts.xlsx'
 
-# Call the service
-tests_df = odata.get_odata(
-    service,
-    endpoint,
-    entity,
-    query_option,
-    api_key,
-    proxies
+# Create dataframe from RIMU monthly file
+confidence_df = (
+    pd.read_excel(
+        rimu_file,
+        sheet_name='Confidence',
+        skiprows=6,
+        usecols='A:C'
+    )
 )
 
-# Sort by date
-tests_df.sort_values(by='Period', inplace=True)
-
-tests_df.rename(
-    columns={'Period': 'Date', 'Value': 'Tests per day'}, inplace=True
-)
-
-# Create vaccines per day dataframe from stats api
-service = "https://api.stats.govt.nz/opendata/v1/"
-endpoint = "Covid-19Indicators"
-entity = "Observations"
-query_option = """$filter=(
-                        ResourceID eq 'CPCOV9')
-                &$select=Period,Label1,Value"""
-api_key = os.environ['STATS_KEY']
-
-# Call the service
-vaccines_daily_df = odata.get_odata(
-    service,
-    endpoint,
-    entity,
-    query_option,
-    api_key,
-    proxies
-)
-
-# Pivot 'dose type' into columns
-vaccines_daily_df = pd.pivot_table(
-    vaccines_daily_df,
-    values='Value',
-    columns='Label1',
-    index='Period'
-).reset_index()
-
-# Sort by date
-vaccines_daily_df.sort_values(by='Period', inplace=True)
-
-# Organise columns
-vaccines_daily_df = vaccines_daily_df[[
+confidence_df.dropna(thresh=2, inplace=True)
+confidence_df.columns = [
     'Period',
-    'First dose administered',
-    'Second dose administered',
-    'Third primary administered',
-    'Boosters administered'
-]]
-
-# Create share of population vaccinated dataframe from ourworldindata.org
-csv_file = 'https://github.com/owid/covid-19-data/raw/master/public/data/vaccinations/vaccinations.csv'
-vacc_share_df = pd.read_csv(csv_file)
-vacc_share_df = (
-    vacc_share_df.loc[
-        vacc_share_df['location'] == 'New Zealand',
-        ['date',
-         'people_vaccinated',
-         'people_fully_vaccinated']
-    ]
-).dropna()
-vacc_share_df['date'] = pd.to_datetime(vacc_share_df['date'], format='%Y-%m-%d')
-vacc_share_df['% of population with one dose'] = vacc_share_df['people_vaccinated'] / 4209057 # HSU +12 population from MOH
-vacc_share_df['% of population with two or more doses'] = vacc_share_df['people_fully_vaccinated'] / 4209057
-
-#
-vacc_share_df = vacc_share_df[['date',
-                               '% of population with one dose',
-                               '% of population with two or more doses']]
-
-# Upload to Google Sheets
-cases_dataframes = [
-    daily_df,
-    cumulative_df,
-    tests_df,
-    vaccines_daily_df,
-    vacc_share_df
+    'Consumer Confidence Index (LHS)',
+    'Business confidence (RHS, %)'
 ]
+confidence_df = confidence_df.loc[confidence_df['Period']>='2021-01-01']
+confidence_df['Period'] = confidence_df['Period'].dt.to_period('Q').dt.strftime('%Y Q%q') #format for YYYY Q
 
-workbook_name = '1. Auckland-index-covid-dashboard-covid-cases'
-
+# Upload to G Sheets
+# Note gspread_pandas was not accepting full sheet name (was throwing an error),
+# so sheet ID has been used instead
+workbook_name = '3. Auckland-index-covid-dashboard-confidence-indices'
 upload_gsheets(
     workbook_name,
-    cases_dataframes,
-    sheets=[0, 1, 2, 3, 4]
-)
-
-# Format cells
-format_gsheets(
-    workbook_name,
-    'A',
-    'DATE',
-    'dd-mmm-yy',
-    sheets=[0, 1, 2, 3, 4]
+    [confidence_df]
 )
 
 format_gsheets(
     workbook_name,
-    'B:E',
+    'B',
     'NUMBER',
-    '0',
-    sheets=[0, 1, 2, 3]
+    '0.0'
 )
 
 format_gsheets(
     workbook_name,
-    'B:E',
+    'C',
     'PERCENT',
-    '0.0%',
-    sheets=[4]
-)
-
-# %% UNEMPLOYMENT BENEFITS AND PAYMENTS
-
-# Set the variables for Jobseeker by region data
-service = "https://api.stats.govt.nz/opendata/v1/"
-endpoint = "Covid-19Indicators"
-entity = "Observations"
-query_option = """$filter=(
-                        ResourceID eq 'CPBEN7' and
-                        Geo eq 'Auckland metro')
-                &$select=Period,Value"""
-api_key = os.environ['STATS_KEY']
-
-# Call the service
-jobseeker_df = odata.get_odata(
-    service,
-    endpoint,
-    entity,
-    query_option,
-    api_key,
-    proxies
-)
-
-# Sort by date order
-jobseeker_df.sort_values(by='Period', inplace=True)
-
-# Set the variables for CIRP data
-query_option = """$filter=(
-                        ResourceID eq 'CPINC5' and
-                        Label1 eq 'Total number of recipients of CIRP')
-                &$select=Period,Value"""
-
-# Call the service
-cirp_df = odata.get_odata(
-    service,
-    endpoint,
-    entity,
-    query_option,
-    api_key,
-    proxies
-)
-
-cirp_df.sort_values(by='Period', inplace=True)
-
-# As MSD only released national data, Auckland was calculated as approximately 39.5% of
-# total up to 7th August and 43% from 14th August to 11th Sept and 49% from 18th Sept onwards
-cirp_df.iloc[:, 1] = pd.concat(
-    [
-        (cirp_df.iloc[0:9, 1] * 0.395).round(0),
-        (cirp_df.iloc[9:14, 1] * 0.43).round(0),
-        (cirp_df.iloc[14:, 1] * 0.49).round(0)
-    ]
-)
-
-# Rename columns
-jobseeker_df.columns = ['Date', 'Jobseeker Support']
-cirp_df.columns = ['Date', 'COVID-19 Income Relief Payment']
-
-# Merge jobseeker and CIRP datasets
-auckland_df = pd.merge(
-    jobseeker_df,
-    cirp_df,
-    on='Date',
-    how='left'
-).fillna(0)  # Replaces NaN's with zeros
-
-# Create total column and remove zero's
-auckland_df['Total'] = pd.to_numeric(auckland_df.sum(axis=1))
-auckland_df['COVID-19 Income Relief Payment'] = auckland_df[
-    ['COVID-19 Income Relief Payment']
-].replace(to_replace=0, value='')
-
-# Upload to Google Sheets
-workbook_name = '2. Auckland-index-covid-dashboard-unemployment-benefits-and-payments'
-
-upload_gsheets(
-    workbook_name,
-    [auckland_df]
-)
-
-# Format Google Sheet cells
-format_gsheets(
-    workbook_name,
-    'A',
-    'DATE',
-    'dd-mmm-yy'
+    '0.0%'
 )
 
 
 # %% GOOGLE MOBILITY DATA
 
-# Download CSV data
-csv_path = 'https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv'
+# Download CSV Data
+URL = 'https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv'
+options = Options()
+# options.headless = False
+data_folder = os.path.join(
+    os.getenv('USERPROFILE'), 'Auckland-Index-Update\\data_files'
+)  # Create's path for operating user
+prefs = {'download.default_directory': data_folder}  # Download's to project folder path as above
+options.add_experimental_option('prefs', prefs)
+options.add_argument("start-maximized")
+# options.add_argument("--headless")  # This setting stops a browser window from opening
+driver = webdriver.Chrome(
+    executable_path=r'C:\windows\chromedriver', options=options
+)
+
+# Remove previously downloaded MBIE data files
+delete_file(data_folder, 'Global_Mobility_Report.csv')
+
+driver.get(URL)
+
+file_path = 'data_files/Global_Mobility_Report.csv'
+
+while not os.path.exists(file_path):
+    time.sleep(10)
+
+if os.path.isfile(file_path):
+    driver.quit()
+
+csv_path = ('data_files/Global_Mobility_Report.csv')
 
 # Create pandas dataframe from CSV data
 df = pd.read_csv(
     csv_path,
     parse_dates=['date'],
     index_col='date',
-    dtype={'country_region_code': 'string',
-           'country_region': 'string',
+    dtype={
+        'country_region_code': 'string',
+            'country_region': 'string',
            'sub_region_1': 'string',
-           'sub_region_2': 'string',
-           'metro_area': 'string',
-           'iso_3166_2_code': 'string',
-           'census_fips_code': 'float',
+            'sub_region_2': 'string',
+            'metro_area': 'string',
+            'iso_3166_2_code': 'string',
+            'census_fips_code': 'float',
            'retail_and_recreation_percent_change_from_baseline': 'float',
            'grocery_and_pharmacy_percent_change_from_baseline': 'float',
            'parks_percent_change_from_baseline': 'float',
@@ -321,24 +154,25 @@ df.rename(
 # Slice dataframe by Auckland
 auckland_df = df.loc[df['sub_region_1'] == 'Auckland',
                      ['retail_rec_raw',
-                      'grocery_raw',
-                      'parks_raw',
-                      'transit_stations_raw',
+                      # 'grocery_raw',
+                      # 'parks_raw',
+                      # 'transit_stations_raw',
                       'workplaces_raw',
                       'residential_raw']
                      ]
 
+
 raw = ['retail_rec_raw',
-       'grocery_raw',
-       'parks_raw',
-       'transit_stations_raw',
+       # 'grocery_raw',
+       # 'parks_raw',
+       # 'transit_stations_raw',
        'workplaces_raw',
        'residential_raw']
 
 ma = ['Retail & Recreation',
-      'Grocery & Pharmacy',
-      'Parks',
-      'Transit Stations',
+      # 'Grocery & Pharmacy',
+      # 'Parks',
+      # 'Transit Stations',
       'Workplaces',
       'Residential']
 
@@ -348,20 +182,20 @@ for i, x in zip(raw, ma):
 
 # Reset index for Google Sheets so date is a column and in correct format
 auckland_df = auckland_df.reset_index()
-auckland_df['date'] = auckland_df['date'].dt.strftime('%m/%d/%Y')
+auckland_df['date'] = pd.to_datetime(auckland_df['date'], format='%m/%d/%Y')
+
 
 # Select relevant columns for G Sheets in correct order
 auckland_df = auckland_df.loc[
-    6:,
+    auckland_df['date']>='2021-01-01',
     ['date',
      'Retail & Recreation',
-     'Grocery & Pharmacy',
-     'Parks',
-     'Transit Stations',
+     # 'Grocery & Pharmacy',
+     # 'Parks',
+     # 'Transit Stations',
      'Workplaces',
      'Residential']
 ]
-
 
 # Upload to Google Sheets
 workbook_name = '4. Auckland-index-covid-dashboard-mobility'
@@ -424,7 +258,7 @@ pt_df_22 = (
 pt_df_22.rename(columns={'Rolling': '2022'}, inplace=True)
 
 # Download patronage data data already in Google Sheet (starts Jan 2019)
-workbook_name = '6. Auckland-index-covid-dashboard-transport'
+workbook_name = '5. Auckland-index-covid-dashboard-transport'
 format_gsheets(
     workbook_name,
     'A',
@@ -544,7 +378,7 @@ heavy_df = heavy_df_19.join(
 )
 
 # Upload to Google Sheets
-workbook_name = '6. Auckland-index-covid-dashboard-transport'
+workbook_name = '5. Auckland-index-covid-dashboard-transport'
 
 transport_dataframes = [light_df, heavy_df, pt_df]
 
@@ -563,107 +397,6 @@ format_gsheets(
     sheets=[0, 1, 2]
 )
 
-# %% JOBS
-# Set the variables for filled jobs data
-service = "https://api.stats.govt.nz/opendata/v1/"
-endpoint = "EmploymentIndicators"
-entity = "Observations"
-query_option = """$filter=(
-                        ResourceID eq 'MEI4.1' and
-                        Geo eq 'Auckland Region')
-                &$select=Period,Value"""
-api_key = os.environ['STATS_KEY']
-
-# Call the service
-filledjobs_df = odata.get_odata(
-    service,
-    endpoint,
-    entity,
-    query_option,
-    api_key,
-    proxies
-)
-
-# Sort to date order
-filledjobs_df.sort_values(by='Period', inplace=True)
-
-filledjobs_df.rename(
-    columns={'Period': 'Month',
-             'Value': 'Auckland'},
-    inplace=True
-)
-
-# Set the variables for the jobs online data
-endpoint = "Covid-19Indicators"
-query_option = """$filter=(
-                        ResourceID eq 'CPEMP5' and
-                        Period ge 2017-01-01)
-                &$select=Period,Geo,Value"""
-
-# Call the service
-jobsonline_df = odata.get_odata(
-    service,
-    endpoint,
-    entity,
-    query_option,
-    api_key,
-    proxies
-)
-
-# Sort to date order
-jobsonline_df.sort_values(by='Period', inplace=True)
-
-jobsonline_df = pd.pivot_table(
-    jobsonline_df,
-    values='Value',
-    columns='Geo',
-    index='Period'
-).reset_index()
-
-# Rebase index to Jan 2017
-regions = [
-    'Auckland',
-    'Canterbury',
-    'Wellington',
-    'North Island (Other)',
-    'South Island (Other)'
-]
-
-for i in regions:
-    jobsonline_df[i] = (
-        jobsonline_df[i] / jobsonline_df.loc[0, i] * 100
-    ).round(1)
-
-jobsonline_df.rename(columns={'Period': 'Date'}, inplace=True)
-regions.insert(0, 'Date')  # add date column to list
-
-jobsonline_df = jobsonline_df[regions]
-
-# Upload to Google Sheets
-workbook_name = '7. Auckland-index-covid-dashboard-jobs'
-jobs_dataframes = [filledjobs_df, jobsonline_df]
-
-upload_gsheets(
-    workbook_name,
-    jobs_dataframes,
-    sheets=[0, 1]
-)
-
-format_gsheets(
-    workbook_name,
-    'A',
-    'DATE',
-    'mmm yyyy',
-    sheets=[0, 1]
-)
-
-format_gsheets(
-    workbook_name,
-    'B:F',
-    'NUMBER',
-    '#.0',
-    sheets=[1]
-)
 
 # %% ARRIVALS
 
@@ -710,7 +443,7 @@ arrivals_df = arrivals_19_df.join(
 )
 
 # Upload to Google sheets
-workbook_name = '8. Auckland-index-covid-dashboard-arrivals'
+workbook_name = '6. Auckland-index-covid-dashboard-arrivals'
 
 upload_gsheets(
     workbook_name,
@@ -724,98 +457,6 @@ format_gsheets(
     'dd-mmm'
 )
 
-# %% TRADE
-
-# Download filled jobs csv file
-URL = 'https://www.stats.govt.nz/large-datasets/csv-files-for-download/'
-options = Options()
-options.headless = False  # This setting stops a browser window from opening
-driver = webdriver.Chrome(
-    executable_path=r'C:\windows\chromedriver',
-    options=options
-)
-driver.get(URL)  # Opens URL on chrome to activate javascript
-stats_soup = bs(driver.page_source, 'html.parser')  # Uses bs to get data from browser
-driver.quit()  # Quits browser
-
-# Find link for trade CSV file
-link = stats_soup.find(
-    'a', href=re.compile('Effects-of-COVID-19-on-trade')
-).get('href')
-
-csv_download = ('https://www.stats.govt.nz' + link)
-
-# Create dataframe
-df = pd.read_csv(csv_download)
-df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
-
-# Filter to relevant data and pivot so that categories are in columns
-filtered_df = df.loc[
-    (df['Direction'] == 'Exports')
-    & (df['Country'] == 'All')
-    & (df['Transport_Mode'] == 'All')
-    & (df['Measure'] == '$')
-].reset_index(drop=True)
-
-# Pivot so that commodities are in columns
-pivot_df = pd.pivot_table(
-    filtered_df,
-    index='Date',
-    values='Value',
-    columns='Commodity'
-).dropna()
-
-# Update values to rolling 28 day average
-pivot_df = pivot_df.rolling(28).mean()
-
-# Create df's of relevant date ranges
-df_2019 = pivot_df.loc['2019-01-01':'2019-12-31']
-df_2020 = pivot_df.loc['2020-01-01':'2020-12-31']
-df_2021 = pivot_df.loc['2021-01-01':'2021-12-31']
-df_2022 = pivot_df.loc['2022-01-01':'2022-12-31']
-df_2019_ly = (df_2019.append(df_2019.iloc[-1:]))  # Create 366 line 2019 dataframe (last day repeated) to compare with 2020 leap year
-
-# Calculate 2020 percentage change
-pct_df = df_2019_ly.append(df_2020)
-trade_df_20 = (pct_df.pct_change(periods=366)).dropna()
-
-# Calculate 2021 percentage change
-pct_df = df_2019.append(df_2021)
-trade_df_21 = (pct_df.pct_change(periods=365)).dropna()
-
-# Calculate 2022 percentage change
-pct_df = df_2019.append(df_2022)
-trade_df_22 = (pct_df.pct_change(periods=365)).dropna()
-
-# Combine df's
-trade_df = pd.concat([trade_df_20, trade_df_21, trade_df_22])
-trade_df.reset_index(inplace=True)
-trade_df.rename(
-    {'All': 'Total'},
-    inplace=True
-)
-
-# Upload to Google Sheets
-workbook_name = '9. Auckland-index-covid-dashboard-trade'
-
-upload_gsheets(
-    workbook_name,
-    [trade_df]
-)
-
-format_gsheets(
-    workbook_name,
-    'A',
-    'DATE',
-    'dd-mmm-yy'
-)
-
-format_gsheets(
-    workbook_name,
-    'B:H',
-    'PERCENT',
-    '0.0%'
-)
 
 # %% CONSUMER SPENDING
 URL = 'https://mbienz.shinyapps.io/card_spend_covid19/'
@@ -925,7 +566,7 @@ card_df = regional_df.reset_index(drop=True).join(national_df)
 driver.quit()  # Quit driver
 
 # Upload to Google Sheets
-workbook_name = '3. Auckland-index-covid-dashboard-consumer-spending'
+workbook_name = '2. Auckland-index-covid-dashboard-consumer-spending'
 
 upload_gsheets(
     workbook_name,
