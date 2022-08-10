@@ -1,6 +1,6 @@
 # Auckland Index Update
 ## Overview
-This program was designed to automate the data processing and uploading for the [Auckland Index](https://www.aucklandnz.com/auckland-index) - a publicly available, digital repository of Auckland-centric economic data.
+This program was designed to automate the data processing and uploading for the [Auckland Index](https://www.aucklandnz.com/auckland-index) - a publicly available, digital repository of Auckland-centric economic data. The Auckland Index contains 50+ interactive graphs from 20+ sources.
 
 ## Development
 The program was written in Python and the data is stored on Google Sheets, where Infogram (data visualisation tool) connects to it for presentation on the Auckland Index. The following packages have been used:
